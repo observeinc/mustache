@@ -56,6 +56,36 @@ func TestParser(t *testing.T) {
 				}},
 			},
 		},
+		{
+			"{{#*}}({{.}}){{/*}}",
+			[]node{
+				&sectionNode{"*", false, []node{
+					textNode("("),
+					&varNode{".", true},
+					textNode(")"),
+				}},
+			},
+		},
+		{
+			"{{#list}}({{*}}){{/list}}",
+			[]node{
+				&sectionNode{"list", false, []node{
+					textNode("("),
+					&varNode{"*", true},
+					textNode(")"),
+				}},
+			},
+		},
+		{
+			"{{#list}}({{a}a}}){{/list}}",
+			[]node{
+				&sectionNode{"list", false, []node{
+					textNode("("),
+					&varNode{"a}a", true},
+					textNode(")"),
+				}},
+			},
+		},
 	} {
 		parser := newParser(newLexer(test.template, "{{", "}}"))
 		elems, err := parser.parse()
