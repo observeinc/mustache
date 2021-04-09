@@ -290,6 +290,8 @@ func stateIdent(l *lexer) stateFn {
 Loop:
 	for {
 		switch r := l.peek(); {
+		case r == eof:
+			return l.errorf("unclosed tag")
 		case !whitespace(r) && !strings.HasPrefix(l.input[l.pos:], l.rightDelim):
 			// absorb
 			l.next()
