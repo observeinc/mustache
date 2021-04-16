@@ -42,8 +42,9 @@ func TestSimpleLookup(t *testing.T) {
 				String  string
 				Boolean bool
 				Nested  struct{ Inside string }
+				Tagged  string `mustache:"newName"`
 			}{
-				123, "abc", true, struct{ Inside string }{"I'm nested!"},
+				123, "abc", true, struct{ Inside string }{"I'm nested!"}, "xyz",
 			},
 			assertions: []struct {
 				name  string
@@ -54,6 +55,7 @@ func TestSimpleLookup(t *testing.T) {
 				{"String", "abc", true},
 				{"Boolean", true, true},
 				{"Nested.Inside", "I'm nested!", true},
+				{"newName", "xyz", true},
 			},
 		},
 	} {

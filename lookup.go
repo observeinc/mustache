@@ -54,6 +54,21 @@ func lookup(name string, context ...interface{}) (interface{}, bool) {
 				return out.Interface(), truth(out)
 			}
 
+			typ := reflectValue.Type()
+			for i := 0; i < typ.NumField(); i++ {
+				f := typ.Field(i)
+				if f.PkgPath != "" {
+					continue
+				}
+				tag := f.Tag.Get("mustache")
+				if tag == name {
+					field := reflectValue.Field(i)
+					if field.IsValid() {
+						return field.Interface(), truth(field)
+					}
+				}
+			}
+
 		}
 		// If by this point no value was matched, we'll move up a step in the
 		// chain and try to match a value there.
