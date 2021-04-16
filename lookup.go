@@ -45,13 +45,28 @@ func lookup(name string, context ...interface{}) (interface{}, bool) {
 		// names in our templates which makes it more mustache like.
 		case reflect.Struct:
 			field := reflectValue.FieldByName(name)
-			if field.IsValid() {
+			if field.IsValid() && field.CanInterface() {
 				return field.Interface(), truth(field)
 			}
 			method := reflectValue.MethodByName(name)
 			if method.IsValid() && method.Type().NumIn() == 1 {
 				out := method.Call(nil)[0]
 				return out.Interface(), truth(out)
+			}
+
+			typ := reflectValue.Type()
+			for i := 0; i < typ.NumField(); i++ {
+				f := typ.Field(i)
+				if f.PkgPath != "" {
+					continue
+				}
+				tag := f.Tag.Get("mustache")
+				if tag == name {
+					field := reflectValue.Field(i)
+					if field.IsValid() {
+						return field.Interface(), truth(field)
+					}
+				}
 			}
 
 		}
