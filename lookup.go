@@ -45,7 +45,7 @@ func lookup(name string, context ...interface{}) (interface{}, bool) {
 		// names in our templates which makes it more mustache like.
 		case reflect.Struct:
 			field := reflectValue.FieldByName(name)
-			if field.IsValid() {
+			if field.IsValid() && field.CanInterface() {
 				return field.Interface(), truth(field)
 			}
 			method := reflectValue.MethodByName(name)
