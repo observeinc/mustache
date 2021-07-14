@@ -4,6 +4,7 @@ package mustache
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -53,10 +54,7 @@ func (n *varNode) render(t *Template, w *writer, c ...interface{}) error {
 	// If the value is present but 'falsy', such as a false bool, or a zero int,
 	// we still want to render that value.
 	if v != nil {
-		if n.escape {
-			v = escape(fmt.Sprintf("%v", v))
-		}
-		print(w, v)
+		print(w, v, n.escape)
 		return nil
 	}
 	return fmt.Errorf("failed to lookup %s", n.name)
@@ -150,21 +148,28 @@ func (n delimNode) render(t *Template, w *writer, c ...interface{}) error {
 
 // The print function is able to format the interface v and write it to w using
 // the best possible formatting flags.
-func print(w io.Writer, v interface{}) {
+func print(w io.Writer, v interface{}, needEscape bool) {
+	var output string
 	if s, ok := v.(fmt.Stringer); ok {
-		fmt.Fprint(w, s.String())
+		output = s.String()
 	} else {
 		switch v.(type) {
 		case string:
-			fmt.Fprintf(w, "%s", v)
+			output = fmt.Sprintf("%s", v)
 		case int, uint, int8, uint8, int16, uint16, int32, uint32, int64, uint64:
-			fmt.Fprintf(w, "%d", v)
+			output = fmt.Sprintf("%d", v)
 		case float32, float64:
-			fmt.Fprintf(w, "%g", v)
+			output = fmt.Sprintf("%g", v)
 		default:
-			fmt.Fprintf(w, "%v", v)
+			obj, _ := json.Marshal(v)
+			output = string(obj)
 		}
 	}
+
+	if needEscape {
+		output = escape(output)
+	}
+	fmt.Fprintf(w, output)
 }
 
 // The escape function replicates the text/template.HTMLEscapeString but keeps
