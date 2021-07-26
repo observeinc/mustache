@@ -87,3 +87,41 @@ func TestParseTree(t *testing.T) {
 		t.Log(b.String())
 	}
 }
+
+func TestObjectOutput(t *testing.T) {
+	inputTemplate := strings.NewReader("Raw output here: {{.}}")
+	inputData := map[string]map[string]string{"foo": {"bar": "baz"}}
+	template := New()
+	err := template.Parse(inputTemplate)
+	if err != nil {
+		t.Error(err)
+	}
+	var output bytes.Buffer
+	err = template.Render(&output, inputData)
+	if err != nil {
+		t.Error(err)
+	}
+	expected := "Raw output here: {&quot;foo&quot;:{&quot;bar&quot;:&quot;baz&quot;}}"
+	if output.String() != expected {
+		t.Errorf("expected %q got %q", expected, output.String())
+	}
+}
+
+func TestObjectOutputUnescaped(t *testing.T) {
+	inputTemplate := strings.NewReader("Raw output here: {{{.}}}")
+	inputData := map[string]map[string]string{"foo": {"bar": "baz"}}
+	template := New()
+	err := template.Parse(inputTemplate)
+	if err != nil {
+		t.Error(err)
+	}
+	var output bytes.Buffer
+	err = template.Render(&output, inputData)
+	if err != nil {
+		t.Error(err)
+	}
+	expected := "Raw output here: {\"foo\":{\"bar\":\"baz\"}}"
+	if output.String() != expected {
+		t.Errorf("expected %q got %q", expected, output.String())
+	}
+}
