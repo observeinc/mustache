@@ -55,14 +55,14 @@ func TestParseTree(t *testing.T) {
 	template := New()
 	template.elems = []node{
 		textNode("Lorem ipsum dolor sit "),
-		&varNode{"foo", false},
+		&varNode{"foo", noEscape},
 		textNode(", "),
 		&sectionNode{"bar", false, []node{
-			&varNode{"baz", true},
+			&varNode{"baz", htmlEscape},
 			textNode(" adipiscing"),
 		}},
 		textNode(" elit. Proin commodo viverra elit "),
-		&varNode{"zer", false},
+		&varNode{"zer", noEscape},
 		textNode("."),
 	}
 	data := map[string]interface{}{
@@ -88,6 +88,23 @@ func TestParseTree(t *testing.T) {
 	}
 }
 
+func TestTemplateJsonEscaped(t *testing.T) {
+	input := strings.NewReader("some text {{foo}} here")
+	template := New(JsonEscape())
+	err := template.Parse(input)
+	if err != nil {
+		t.Error(err)
+	}
+	var output bytes.Buffer
+	err = template.Render(&output, map[string]string{"foo": "\"bar\"\n<baz>"})
+	if err != nil {
+		t.Error(err)
+	}
+	expected := "some text \\\"bar\\\"\\n<baz> here"
+	if output.String() != expected {
+		t.Errorf("expected %q got %q", expected, output.String())
+	}
+}
 func TestObjectOutput(t *testing.T) {
 	inputTemplate := strings.NewReader("Raw output here: {{.}}")
 	inputData := map[string]map[string]string{"foo": {"bar": "baz"}}
@@ -102,6 +119,26 @@ func TestObjectOutput(t *testing.T) {
 		t.Error(err)
 	}
 	expected := "Raw output here: {&quot;foo&quot;:{&quot;bar&quot;:&quot;baz&quot;}}"
+	if output.String() != expected {
+		t.Errorf("expected %q got %q", expected, output.String())
+	}
+}
+
+func TestObjectOutputJsonEscaped(t *testing.T) {
+	inputTemplate := strings.NewReader("Raw output here: {{.}}")
+	//inputData := map[string]map[string]string{"foo": {"bår": "baz"}}
+	inputData := map[string]map[string]string{"foo": {"bar": "baz"}}
+	template := New(JsonEscape())
+	err := template.Parse(inputTemplate)
+	if err != nil {
+		t.Error(err)
+	}
+	var output bytes.Buffer
+	err = template.Render(&output, inputData)
+	if err != nil {
+		t.Error(err)
+	}
+	expected := "Raw output here: {\\\"foo\\\":{\\\"bar\\\":\\\"baz\\\"}}"
 	if output.String() != expected {
 		t.Errorf("expected %q got %q", expected, output.String())
 	}
