@@ -41,11 +41,32 @@ func (n textNode) String() string {
 	return fmt.Sprintf("[text: %q]", string(n))
 }
 
+type escapeType int
+
+const (
+	noEscape escapeType = iota
+	htmlEscape
+	jsonEscape
+)
+
+func (e escapeType) String() string {
+	switch e {
+	case noEscape:
+		return "noEscape"
+	case htmlEscape:
+		return "htmlEscape"
+	case jsonEscape:
+		return "jsonEscape"
+	default:
+		return "invalidEscape"
+	}
+}
+
 // The varNode type represents a part of the template that needs to be replaced
 // by a variable that exists within c.
 type varNode struct {
 	name   string
-	escape bool
+	escape escapeType
 }
 
 func (n *varNode) render(t *Template, w *writer, c ...interface{}) error {
@@ -61,7 +82,7 @@ func (n *varNode) render(t *Template, w *writer, c ...interface{}) error {
 }
 
 func (n *varNode) String() string {
-	return fmt.Sprintf("[var: %q escaped: %t]", n.name, n.escape)
+	return fmt.Sprintf("[var: %q escaped: %s]", n.name, n.escape.String())
 }
 
 // The sectionNode type is a complex node which recursively renders its child
@@ -148,7 +169,7 @@ func (n delimNode) render(t *Template, w *writer, c ...interface{}) error {
 
 // The print function is able to format the interface v and write it to w using
 // the best possible formatting flags.
-func print(w io.Writer, v interface{}, needEscape bool) {
+func print(w io.Writer, v interface{}, needEscape escapeType) {
 	var output string
 	if s, ok := v.(fmt.Stringer); ok {
 		output = s.String()
@@ -166,15 +187,17 @@ func print(w io.Writer, v interface{}, needEscape bool) {
 		}
 	}
 
-	if needEscape {
-		output = escape(output)
+	if needEscape == htmlEscape {
+		output = escapeHtml(output)
+	} else if needEscape == jsonEscape {
+		output = escapeJson(output)
 	}
 	fmt.Fprintf(w, output)
 }
 
 // The escape function replicates the text/template.HTMLEscapeString but keeps
 // "&apos;" and "&quot;" for compatibility with the mustache spec.
-func escape(s string) string {
+func escapeHtml(s string) string {
 	if strings.IndexAny(s, `'"&<>`) < 0 {
 		return s
 	}
@@ -196,6 +219,20 @@ func escape(s string) string {
 		}
 	}
 	return b.String()
+}
+
+func escapeJson(s string) string {
+	b := new(strings.Builder)
+	enc := json.NewEncoder(b)
+	enc.SetEscapeHTML(false)
+	err := enc.Encode(s)
+	if err != nil {
+		panic(err)
+	}
+	// Skip 1 character at the beginning for the quote
+	// Skip 2 characters at the end, 1 quote and 1 newline
+	// which is inserted automatically by encoder.
+	return b.String()[1 : b.Len()-2]
 }
 
 // The Option type describes functional options used with Templates. Check out
@@ -242,6 +279,22 @@ func SilentMiss(silent bool) Option {
 	}
 }
 
+// Default is this, when text is inserted it will be escaped
+// HTML style as is default for mustache.
+func HtmlEscape() Option {
+	return func(t *Template) {
+		t.escape = htmlEscape
+	}
+}
+
+// If you specify this option, then text inserted into the template
+// will be escaped using JSON escaping rules (with SetHTMLEscaping(false))
+func JsonEscape() Option {
+	return func(t *Template) {
+		t.escape = jsonEscape
+	}
+}
+
 // The Template type represents a template and its components.
 type Template struct {
 	name       string
@@ -250,6 +303,7 @@ type Template struct {
 	startDelim string
 	endDelim   string
 	silentMiss bool
+	escape     escapeType
 }
 
 // New returns a new Template instance.
@@ -260,6 +314,7 @@ func New(options ...Option) *Template {
 		startDelim: "{{",
 		endDelim:   "}}",
 		silentMiss: true,
+		escape:     htmlEscape,
 	}
 	t.Option(options...)
 	return t
@@ -280,7 +335,7 @@ func (t *Template) Parse(r io.Reader) error {
 		return err
 	}
 	l := newLexer(string(b), t.startDelim, t.endDelim)
-	p := newParser(l)
+	p := newParser(l, t.escape)
 	elems, err := p.parse()
 	if err != nil {
 		return err

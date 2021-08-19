@@ -8,9 +8,10 @@ import (
 )
 
 type parser struct {
-	lexer *lexer
-	buf   []token
-	ast   []node
+	lexer  *lexer
+	escape escapeType
+	buf    []token
+	ast    []node
 }
 
 // read returns the next token from the lexer and advances the cursor. This
@@ -166,11 +167,11 @@ func (p *parser) parseTag() (node, error) {
 	token := p.read()
 	switch token.typ {
 	case tokenIdentifier:
-		return p.parseVar(token, true)
+		return p.parseVar(token, p.escape)
 	case tokenRawStart:
 		return p.parseRawTag()
 	case tokenRawAlt:
-		return p.parseVar(p.read(), false)
+		return p.parseVar(p.read(), noEscape)
 	case tokenComment:
 		return p.parseComment()
 	case tokenSectionInverse:
@@ -196,12 +197,12 @@ func (p *parser) parseRawTag() (node, error) {
 	if next := p.read(); next.typ != tokenRightDelim {
 		return nil, p.errorf(t, "unexpected token %s", t)
 	}
-	return &varNode{name: t.val, escape: false}, nil
+	return &varNode{name: t.val, escape: noEscape}, nil
 }
 
 // parseVar parses a simple variable tag. It is assumed that the read from the
 // parser should return an identifier.
-func (p *parser) parseVar(ident token, escape bool) (node, error) {
+func (p *parser) parseVar(ident token, escape escapeType) (node, error) {
 	if t := p.read(); t.typ != tokenRightDelim {
 		return nil, p.errorf(t, "unexpected token %s", t)
 	}
@@ -263,7 +264,7 @@ func (p *parser) parseSection(inverse bool) (node, error) {
 			break
 		}
 	}
-	nodes, err := subParser(tokens[:len(tokens)-3]).parse()
+	nodes, err := subParser(tokens[:len(tokens)-3], p.escape).parse()
 	if err != nil {
 		return nil, err
 	}
@@ -289,11 +290,11 @@ func (p *parser) parsePartial() (node, error) {
 }
 
 // newParser creates a new parser using the suppliad lexer.
-func newParser(l *lexer) *parser {
-	return &parser{lexer: l}
+func newParser(l *lexer, escape escapeType) *parser {
+	return &parser{lexer: l, escape: escape}
 }
 
 // subParser creates a new parser with a pre-defined token buffer.
-func subParser(b []token) *parser {
-	return &parser{buf: append(b, token{typ: tokenEOF})}
+func subParser(b []token, escape escapeType) *parser {
+	return &parser{buf: append(b, token{typ: tokenEOF}), escape: escape}
 }

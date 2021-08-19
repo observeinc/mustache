@@ -89,6 +89,7 @@ The options are:
 - `Delimiters(start, end string) Option` sets the start and end delimiters of the template.
 - `Partial(p *Template) Option` sets p as a partial to the template. It is important to set the name of p so that it may be looked up by the parent template.
 - `SilentMiss(silent bool) Option` sets missing variable lookup behaviour.
+- `HtmlEscape() Option` and `JsonEscape() Option` set the escaping mode for when tokens are substituted. The default is `HtmlEscape` which is what is specified by the mustache spec. `JsonEscape` will instead use escapes as needed for JSON encoding.
 
 Options can be defined either as arguments to [New](http://godoc.org/github.com/alexkappa/mustache#New) or using the [Option](http://godoc.org/github.com/alexkappa/mustache#Template.Option) function.
 

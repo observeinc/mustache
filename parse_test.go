@@ -28,7 +28,7 @@ func TestParser(t *testing.T) {
 			"\nfoo {{bar}} {{#alex}}\r\n\tbaz\n{{/alex}} {{!foo}}",
 			[]node{
 				textNode("\nfoo "),
-				&varNode{"bar", true},
+				&varNode{"bar", htmlEscape},
 				textNode(" "),
 				&sectionNode{"alex", false, []node{
 					textNode("\r\n\tbaz\n"),
@@ -52,7 +52,7 @@ func TestParser(t *testing.T) {
 			[]node{
 				&sectionNode{"list", false, []node{
 					textNode("("),
-					&varNode{".", true},
+					&varNode{".", htmlEscape},
 					textNode(")"),
 				}},
 			},
@@ -62,7 +62,7 @@ func TestParser(t *testing.T) {
 			[]node{
 				&sectionNode{"*", false, []node{
 					textNode("("),
-					&varNode{".", true},
+					&varNode{".", htmlEscape},
 					textNode(")"),
 				}},
 			},
@@ -72,7 +72,7 @@ func TestParser(t *testing.T) {
 			[]node{
 				&sectionNode{"list", false, []node{
 					textNode("("),
-					&varNode{"*", true},
+					&varNode{"*", htmlEscape},
 					textNode(")"),
 				}},
 			},
@@ -82,13 +82,13 @@ func TestParser(t *testing.T) {
 			[]node{
 				&sectionNode{"list", false, []node{
 					textNode("("),
-					&varNode{"a}a", true},
+					&varNode{"a}a", htmlEscape},
 					textNode(")"),
 				}},
 			},
 		},
 	} {
-		parser := newParser(newLexer(test.template, "{{", "}}"))
+		parser := newParser(newLexer(test.template, "{{", "}}"), htmlEscape)
 		elems, err := parser.parse()
 		if err != nil {
 			t.Fatal(err)
@@ -111,7 +111,7 @@ func TestParserNegative(t *testing.T) {
 			`1:6 syntax error: unreachable code t_error:"unclosed tag"`,
 		},
 	} {
-		parser := newParser(newLexer(test.template, "{{", "}}"))
+		parser := newParser(newLexer(test.template, "{{", "}}"), htmlEscape)
 		_, err := parser.parse()
 		if err == nil || !strings.Contains(err.Error(), test.expErr) {
 			t.Errorf("expect error: %q, got %q", test.expErr, err)
