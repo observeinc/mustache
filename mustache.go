@@ -279,7 +279,7 @@ func SilentMiss(silent bool) Option {
 	}
 }
 
-// Default is this, when text is inserted it will be will escaped
+// Default is this, when text is inserted it will be escaped
 // HTML style as is default for mustache.
 func HtmlEscape() Option {
 	return func(t *Template) {
@@ -288,7 +288,7 @@ func HtmlEscape() Option {
 }
 
 // If you specify this option, then text inserted into the template
-// will be escaped using JSON rules
+// will be escaped using JSON escaping rules (with SetHTMLEscaping(false))
 func JsonEscape() Option {
 	return func(t *Template) {
 		t.escape = jsonEscape

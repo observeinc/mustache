@@ -93,12 +93,12 @@ func TestTemplateJsonEscaped(t *testing.T) {
 	template := New(JsonEscape())
 	err := template.Parse(input)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	var output bytes.Buffer
 	err = template.Render(&output, map[string]string{"foo": "\"bar\"\n<baz>"})
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	expected := "some text \\\"bar\\\"\\n<baz> here"
 	if output.String() != expected {
@@ -111,12 +111,12 @@ func TestObjectOutput(t *testing.T) {
 	template := New()
 	err := template.Parse(inputTemplate)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	var output bytes.Buffer
 	err = template.Render(&output, inputData)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	expected := "Raw output here: {&quot;foo&quot;:{&quot;bar&quot;:&quot;baz&quot;}}"
 	if output.String() != expected {
@@ -131,12 +131,12 @@ func TestObjectOutputJsonEscaped(t *testing.T) {
 	template := New(JsonEscape())
 	err := template.Parse(inputTemplate)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	var output bytes.Buffer
 	err = template.Render(&output, inputData)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	expected := "Raw output here: {\\\"foo\\\":{\\\"bar\\\":\\\"baz\\\"}}"
 	if output.String() != expected {
@@ -150,12 +150,12 @@ func TestObjectOutputUnescaped(t *testing.T) {
 	template := New()
 	err := template.Parse(inputTemplate)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	var output bytes.Buffer
 	err = template.Render(&output, inputData)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	expected := "Raw output here: {\"foo\":{\"bar\":\"baz\"}}"
 	if output.String() != expected {
