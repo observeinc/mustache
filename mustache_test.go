@@ -23,11 +23,11 @@ func TestTemplate(t *testing.T) {
 		t.Error(err)
 	}
 	var output bytes.Buffer
-	err = template.Render(&output, map[string]string{"foo": "bar"})
+	err = template.Render(&output, map[string]string{"foo": "bar %2B"})
 	if err != nil {
 		t.Error(err)
 	}
-	expected := "some text bar here"
+	expected := "some text bar %2B here"
 	if output.String() != expected {
 		t.Errorf("expected %q got %q", expected, output.String())
 	}
@@ -96,11 +96,11 @@ func TestTemplateJsonEscaped(t *testing.T) {
 		t.Fatal(err)
 	}
 	var output bytes.Buffer
-	err = template.Render(&output, map[string]string{"foo": "\"bar\"\n<baz>"})
+	err = template.Render(&output, map[string]string{"foo": "\"bar\"\n<baz> %2B"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := "some text \\\"bar\\\"\\n<baz> here"
+	expected := "some text \\\"bar\\\"\\n<baz> %2B here"
 	if output.String() != expected {
 		t.Errorf("expected %q got %q", expected, output.String())
 	}
@@ -127,7 +127,7 @@ func TestObjectOutput(t *testing.T) {
 func TestObjectOutputJsonEscaped(t *testing.T) {
 	inputTemplate := strings.NewReader("Raw output here: {{.}}")
 	//inputData := map[string]map[string]string{"foo": {"bår": "baz"}}
-	inputData := map[string]map[string]string{"foo": {"bar": "baz"}}
+	inputData := map[string]map[string]string{"foo": {"bar": "baz %2B"}}
 	template := New(JsonEscape())
 	err := template.Parse(inputTemplate)
 	if err != nil {
@@ -138,7 +138,7 @@ func TestObjectOutputJsonEscaped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := "Raw output here: {\\\"foo\\\":{\\\"bar\\\":\\\"baz\\\"}}"
+	expected := "Raw output here: {\\\"foo\\\":{\\\"bar\\\":\\\"baz %2B\\\"}}"
 	if output.String() != expected {
 		t.Errorf("expected %q got %q", expected, output.String())
 	}
@@ -146,7 +146,7 @@ func TestObjectOutputJsonEscaped(t *testing.T) {
 
 func TestObjectOutputUnescaped(t *testing.T) {
 	inputTemplate := strings.NewReader("Raw output here: {{{.}}}")
-	inputData := map[string]map[string]string{"foo": {"bar": "baz"}}
+	inputData := map[string]map[string]string{"foo": {"bar": "baz %2B"}}
 	template := New()
 	err := template.Parse(inputTemplate)
 	if err != nil {
@@ -157,7 +157,7 @@ func TestObjectOutputUnescaped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := "Raw output here: {\"foo\":{\"bar\":\"baz\"}}"
+	expected := "Raw output here: {\"foo\":{\"bar\":\"baz %2B\"}}"
 	if output.String() != expected {
 		t.Errorf("expected %q got %q", expected, output.String())
 	}

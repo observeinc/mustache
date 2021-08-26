@@ -192,7 +192,7 @@ func print(w io.Writer, v interface{}, needEscape escapeType) {
 	} else if needEscape == jsonEscape {
 		output = escapeJson(output)
 	}
-	fmt.Fprintf(w, output)
+	fmt.Fprint(w, output)
 }
 
 // The escape function replicates the text/template.HTMLEscapeString but keeps
