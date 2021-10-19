@@ -102,7 +102,13 @@ out:
 	case reflect.Ptr, reflect.Interface:
 		r = r.Elem()
 		goto out
+	case reflect.Invalid:
+		return false
 	default:
-		return r.Interface() != nil
+		if r.CanInterface() {
+			return r.Interface() != nil
+		} else {
+			return false
+		}
 	}
 }
