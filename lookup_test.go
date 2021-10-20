@@ -8,6 +8,8 @@ import (
 )
 
 func TestSimpleLookup(t *testing.T) {
+	var nilStrPtr *string
+	stringForPtr := "string"
 	for _, test := range []struct {
 		context    interface{}
 		assertions []struct {
@@ -38,15 +40,17 @@ func TestSimpleLookup(t *testing.T) {
 		},
 		{
 			context: struct {
-				Integer int
-				String  string
-				Boolean bool
-				Nested  struct{ Inside string }
-				Tagged  string `mustache:"newName"`
-				badTag  string `mustache:"fail"`
-				bad     string
+				Integer  int
+				String   string
+				Boolean  bool
+				Nested   struct{ Inside string }
+				Tagged   string `mustache:"newName"`
+				badTag   string `mustache:"fail"`
+				bad      string
+				ValidPtr *string
+				NilPtr   *string
 			}{
-				123, "abc", true, struct{ Inside string }{"I'm nested!"}, "xyz", "bad", "bad",
+				123, "abc", true, struct{ Inside string }{"I'm nested!"}, "xyz", "bad", "bad", &stringForPtr, nil,
 			},
 			assertions: []struct {
 				name  string
@@ -62,13 +66,15 @@ func TestSimpleLookup(t *testing.T) {
 				{"bad", nil, false},
 				{"badTag", nil, false},
 				{"fail", nil, false},
+				{"ValidPtr", &stringForPtr, true},
+				{"NilPtr", nilStrPtr, false},
 			},
 		},
 	} {
 		for _, assertion := range test.assertions {
 			value, truth := lookup(assertion.name, test.context)
 			if value != assertion.value {
-				t.Errorf("Unexpected value %v != %v", value, assertion.value)
+				t.Errorf("Unexpected value %v,%T != %v,%T", value, value, assertion.value, assertion.value)
 			}
 			if truth != assertion.truth {
 				t.Errorf("Unexpected truth %t != %t", truth, assertion.truth)
