@@ -48,6 +48,20 @@ func TestLexer(t *testing.T) {
 				{typ: tokenEOF},
 			},
 		},
+		{
+			"foo {{bar.with space}}\n{{ trim }}",
+			[]token{
+				{typ: tokenText, val: "foo "},
+				{typ: tokenLeftDelim, val: "{{"},
+				{typ: tokenIdentifier, val: "bar.with space"},
+				{typ: tokenRightDelim, val: "}}"},
+				{typ: tokenText, val: "\n"},
+				{typ: tokenLeftDelim, val: "{{"},
+				{typ: tokenIdentifier, val: "trim"},
+				{typ: tokenRightDelim, val: "}}"},
+				{typ: tokenEOF},
+			},
+		},
 	} {
 		var (
 			lexer = newLexer(test.template, "{{", "}}")
