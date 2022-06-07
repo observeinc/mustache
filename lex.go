@@ -44,6 +44,7 @@ const (
 	tokenSetDelim       // {{={% %}=}} sets delimiters to {% and %}
 	tokenSetLeftDelim   // denotes a custom left delimiter
 	tokenSetRightDelim  // denotes a custom right delimiter
+	tokenTestValue      // denotes a test value section
 )
 
 // Make the types prettyprint.
@@ -84,15 +85,16 @@ type stateFn func(*lexer) stateFn
 
 // lexer holds the state of the scanner.
 type lexer struct {
-	name       string     // the name of the input; used only for error reports.
-	input      string     // the string being scanned.
-	leftDelim  string     // start of action.
-	rightDelim string     // end of action.
-	state      stateFn    // the next lexing function to enter.
-	pos        int        // current position in the input.
-	start      int        // start position of this token.
-	width      int        // width of last rune read from input.
-	tokens     chan token // channel of scanned tokens.
+	name             string     // the name of the input; used only for error reports.
+	input            string     // the string being scanned.
+	leftDelim        string     // start of action.
+	rightDelim       string     // end of action.
+	state            stateFn    // the next lexing function to enter.
+	pos              int        // current position in the input.
+	start            int        // start position of this token.
+	width            int        // width of last rune read from input.
+	tokens           chan token // channel of scanned tokens.
+	testValueSection bool       // supports non-standard {{#has_value <ident> value}}
 }
 
 // next returns the next rune in the input.
@@ -137,6 +139,14 @@ func (l *lexer) emit(t tokenType) {
 // ignore skips over the pending input before this point.
 func (l *lexer) ignore() {
 	l.start = l.pos
+}
+
+func (l *lexer) consumeWhitespace() {
+	for whitespace(l.peek()) {
+		l.next()
+	}
+
+	l.ignore()
 }
 
 // lineNum reports which line we're on. Doing it this way
@@ -187,12 +197,13 @@ func (l *lexer) String() string {
 }
 
 // newLexer creates a new scanner for the input string.
-func newLexer(input, left, right string) *lexer {
+func newLexer(input, left, right string, testValueSection bool) *lexer {
 	l := &lexer{
-		input:      input,
-		leftDelim:  left,
-		rightDelim: right,
-		tokens:     make(chan token, 2),
+		input:            input,
+		leftDelim:        left,
+		rightDelim:       right,
+		tokens:           make(chan token, 2),
+		testValueSection: testValueSection,
 	}
 	l.state = stateText // initial state
 	return l
@@ -248,6 +259,59 @@ func stateRightDelim(l *lexer) stateFn {
 	return stateText
 }
 
+func stateTestValue(l *lexer) stateFn {
+	l.consumeWhitespace()
+	if l.next() != '"' {
+		return l.errorf("invalid test_value value token")
+	}
+	l.ignore()
+
+	for r := l.peek(); r != '"' && r != eof; r = l.peek() {
+		l.next()
+	}
+
+	if l.peek() != '"' {
+		return l.errorf("failed to find close \" for test_value value token")
+	}
+
+	l.emit(tokenText)
+
+	l.next()
+	l.ignore()
+
+	return stateTag
+}
+
+func stateTestIdentRightDelim(l *lexer) stateFn {
+	l.seek(len(l.rightDelim))
+	l.emit(tokenRightDelim)
+	return stateTestValue
+}
+
+func stateTestIdentLeftDelim(l *lexer) stateFn {
+	l.seek(len(l.leftDelim))
+	l.emit(tokenLeftDelim)
+	return stateIdentWithMode(stateTestIdentRightDelim)
+}
+
+func stateTestSentinel(l *lexer) stateFn {
+	l.seek(len("test_value"))
+	l.emit(tokenIdentifier)
+	l.consumeWhitespace()
+
+	if strings.HasPrefix(l.input[l.pos:], l.leftDelim) {
+		return stateTestIdentLeftDelim
+	}
+
+	return l.errorf("Missing test_value identifier")
+}
+
+func stateTest(l *lexer) stateFn {
+	l.next()
+	l.emit(tokenTestValue)
+	return stateTestSentinel
+}
+
 // stateTag scans the elements inside action delimiters.
 func stateTag(l *lexer) stateFn {
 	if strings.HasPrefix(l.input[l.pos:], "}"+l.rightDelim) {
@@ -257,6 +321,9 @@ func stateTag(l *lexer) stateFn {
 	}
 	if strings.HasPrefix(l.input[l.pos:], l.rightDelim) {
 		return stateRightDelim
+	}
+	if l.testValueSection && strings.HasPrefix(l.input[l.pos:], "#test_value") {
+		return stateTest
 	}
 	switch r := l.next(); {
 	case r == eof || r == '\n':
@@ -280,55 +347,52 @@ func stateTag(l *lexer) stateFn {
 		l.emit(tokenRawStart)
 	default:
 		l.backup()
-		return stateIdent
+		return stateIdentWithMode(stateTag)
 	}
 	return stateTag
 }
 
 // stateIdent scans an partial tag or field.
-func stateIdent(l *lexer) stateFn {
-	// Ignore leading whitespace, start by consuming all whitespace
-	for whitespace(l.peek()) {
-		l.next()
-	}
-	// ignore the accumulated whitespace.
-	l.ignore()
+func stateIdentWithMode(exitState stateFn) stateFn {
+	return func(l *lexer) stateFn {
+		l.consumeWhitespace()
 
-	// Now we need to track trailing whitespace.
-	whitespaceCount := 0
-Loop:
-	for {
-		switch r := l.peek(); {
-		case r == eof:
-			return l.errorf("unclosed tag")
-		case !whitespace(r) && !strings.HasPrefix(l.input[l.pos:], l.rightDelim):
-			// If we found something not whitespace or closing tag
-			// then this is internal to a token
-			whitespaceCount = 0
+		// Now we need to track trailing whitespace.
+		whitespaceCount := 0
+	Loop:
+		for {
+			switch r := l.peek(); {
+			case r == eof:
+				return l.errorf("unclosed tag")
+			case !whitespace(r) && !strings.HasPrefix(l.input[l.pos:], l.rightDelim):
+				// If we found something not whitespace or closing tag
+				// then this is internal to a token
+				whitespaceCount = 0
 
-			// absorb the rune
-			l.next()
-		case whitespace(r):
-			// mark this whitespace and advance the rune, we will backup over this
-			// if this is the end of the ident token.
-			whitespaceCount += 1
-			l.next()
-		default:
-			// We've found presumably the closing bracket.
-			// backup by the ammount of the counted whitespace so as to not include it
-			// in the ident token.
-			//
-			// This whitespace will we add back will be ignored as part of the stateTag
-			// processing.
-			for whitespaceCount > 0 {
-				whitespaceCount -= 1
-				l.backup()
+				// absorb the rune
+				l.next()
+			case whitespace(r):
+				// mark this whitespace and advance the rune, we will backup over this
+				// if this is the end of the ident token.
+				whitespaceCount += 1
+				l.next()
+			default:
+				// We've found presumably the closing bracket.
+				// backup by the ammount of the counted whitespace so as to not include it
+				// in the ident token.
+				//
+				// This whitespace will we add back will be ignored as part of the stateTag
+				// processing.
+				for whitespaceCount > 0 {
+					whitespaceCount -= 1
+					l.backup()
+				}
+				l.emit(tokenIdentifier)
+				break Loop
 			}
-			l.emit(tokenIdentifier)
-			break Loop
 		}
+		return exitState
 	}
-	return stateTag
 }
 
 // stateComment scans a comment. The left comment marker is known to be present.

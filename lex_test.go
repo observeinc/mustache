@@ -62,9 +62,28 @@ func TestLexer(t *testing.T) {
 				{typ: tokenEOF},
 			},
 		},
+		{
+			"foo {{#test_value {{foo}} \"bar\"}}{{/test_value}}",
+			[]token{
+				{typ: tokenText, val: "foo "},
+				{typ: tokenLeftDelim, val: "{{"},
+				{typ: tokenTestValue, val: "#"},
+				{typ: tokenIdentifier, val: "test_value"},
+				{typ: tokenLeftDelim, val: "{{"},
+				{typ: tokenIdentifier, val: "foo"},
+				{typ: tokenRightDelim, val: "}}"},
+				{typ: tokenText, val: "bar"},
+				{typ: tokenRightDelim, val: "}}"},
+				{typ: tokenLeftDelim, val: "{{"},
+				{typ: tokenSectionEnd, val: "/"},
+				{typ: tokenIdentifier, val: "test_value"},
+				{typ: tokenRightDelim, val: "}}"},
+				{typ: tokenEOF},
+			},
+		},
 	} {
 		var (
-			lexer = newLexer(test.template, "{{", "}}")
+			lexer = newLexer(test.template, "{{", "}}", true)
 			token = lexer.token()
 			i     = 0
 		)
