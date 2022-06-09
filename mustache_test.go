@@ -9,12 +9,6 @@ import (
 	"testing"
 )
 
-var tests = map[string]interface{}{
-	"some text {{foo}} here":                   map[string]string{"foo": "bar"},
-	"{{#foo}} foo is defined {{bar}} {{/foo}}": map[string]map[string]string{"foo": {"bar": "baz"}},
-	"{{^foo}} foo is defined {{bar}} {{/foo}}": map[string]map[string]string{"foo": {"bar": "baz"}},
-}
-
 func TestTemplate(t *testing.T) {
 	input := strings.NewReader("some text {{foo}} here")
 	template := New()
@@ -179,4 +173,58 @@ func TestInterpolationWithWhitespace(t *testing.T) {
 	if output.String() != expected {
 		t.Errorf("expected %q got %q", expected, output.String())
 	}
+}
+
+type templateTest struct {
+	template string
+	payload  interface{}
+	expect   string
+}
+
+func TestSectionTestValue(t *testing.T) {
+	tests := []templateTest{
+		{ // test basic
+			`some text {{#test_value {{a}} "value"}}hidden{{/test_value}} here`,
+			map[string]string{"a": "value"},
+			`some text hidden here`,
+		},
+		{ // Expect top level context.
+			`some text {{#test_value {{a}} "value"}}{{b}}{{/test_value}} here`,
+			map[string]string{"a": "value", "b": "hidden"},
+			`some text hidden here`,
+		},
+		{ // Test nesting.
+			`some text {{#test_value {{a}} "value"}}{{#test_value {{b}} "hidden"}}thing{{/test_value}}{{/test_value}} here`,
+			map[string]string{"a": "value", "b": "hidden"},
+			`some text thing here`,
+		},
+		{ // test nil lookup
+			`some text {{#test_value {{aa}} "value"}}hidden{{/test_value}} here`,
+			map[string]string{"a": "value"},
+			`some text  here`,
+		},
+		{ // Test nesting normal section
+			`some text {{#test_value {{a}} "value"}}{{#b}}{{.}}{{/b}}{{/test_value}} here`,
+			map[string]interface{}{"a": "value", "b": []int{1, 2, 3}},
+			`some text 123 here`,
+		},
+	}
+	for _, test := range tests {
+		input := strings.NewReader(test.template)
+		template := New(TestValueSection())
+		err := template.Parse(input)
+		if err != nil {
+			t.Error(err)
+		}
+		var output bytes.Buffer
+		err = template.Render(&output, test.payload)
+		if err != nil {
+			t.Error(err)
+		}
+		if output.String() != test.expect {
+			t.Errorf("expected %q got %q", test.expect, output.String())
+		}
+
+	}
+
 }
