@@ -77,6 +77,31 @@ func TestSimpleLookup(t *testing.T) {
 				{"Slice.a", nil, false},
 			},
 		},
+		{
+			context: map[string]interface{}{
+				"outer": []interface{}{[]int{1}, []int{1, 2}},
+			},
+			assertions: []struct {
+				name  string
+				value interface{}
+				truth bool
+			}{
+				{"outer.1.0", 1, true},
+			},
+		},
+		{
+			context: []map[string]int{
+				{"a": 1},
+				{"b": 2},
+			},
+			assertions: []struct {
+				name  string
+				value interface{}
+				truth bool
+			}{
+				{"1.b", 2, true},
+			},
+		},
 	} {
 		for _, assertion := range test.assertions {
 			value, truth := lookup(assertion.name, test.context)
