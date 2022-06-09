@@ -237,39 +237,12 @@ func (p *parser) parseSection(inverse bool) (node, error) {
 	if t.typ != tokenIdentifier {
 		return nil, p.errorf(t, "unexpected token %s", t)
 	}
-	if next := p.read(); next.typ != tokenRightDelim {
-		return nil, p.errorf(t, "unexpected token %s", t)
-	}
-	var (
-		tokens []token
-		stack  = 1
-	)
-	for {
-		read, err := p.readv(t)
-		if err != nil {
-			return nil, err
-		}
-		tokens = append(tokens, read...)
-		if len(read) > 1 {
-			// Check the token that preceeded the matching identifier. For
-			// section start and inverse tokens we increase the stack, otherwise
-			// decrease.
-			tt := read[len(read)-2]
-			switch {
-			case tt.typ == tokenSectionStart || tt.typ == tokenSectionInverse:
-				stack++
-			case tt.typ == tokenSectionEnd:
-				stack--
-			}
-		}
-		if stack == 0 {
-			break
-		}
-	}
-	nodes, err := subParser(tokens[:len(tokens)-3], p.escape).parse()
+
+	nodes, err := p.parseSectionInternal(t)
 	if err != nil {
 		return nil, err
 	}
+
 	section := &sectionNode{
 		name:     t.val,
 		inverted: inverse,
@@ -289,6 +262,46 @@ func (p *parser) parsePartial() (node, error) {
 		return nil, p.errorf(t, "unexpected token %s", t)
 	}
 	return &partialNode{t.val}, nil
+}
+
+func (p *parser) parseSectionInternal(t token) ([]node, error) {
+
+	if next := p.read(); next.typ != tokenRightDelim {
+		return nil, p.errorf(next, "unexpected token %s", next)
+	}
+
+	var (
+		tokens []token
+		stack  = 1
+	)
+	for {
+		read, err := p.readv(t)
+		if err != nil {
+			return nil, err
+		}
+		tokens = append(tokens, read...)
+		if len(read) > 1 {
+			// Check the token that preceeded the matching identifier. For
+			// section start and inverse tokens we increase the stack for sections or testValue for those special sections, otherwise
+			// decrease.
+			tt := read[len(read)-2]
+			switch {
+			case tt.typ == tokenSectionStart || tt.typ == tokenTestValue || tt.typ == tokenSectionInverse:
+				stack++
+			case tt.typ == tokenSectionEnd:
+				stack--
+			}
+		}
+		if stack == 0 {
+			break
+		}
+	}
+	nodes, err := subParser(tokens[:len(tokens)-3], p.escape).parse()
+	if err != nil {
+		return nil, err
+	}
+
+	return nodes, nil
 }
 
 // parseSection parses a test_Value block. It is assumed that the next read should
@@ -314,40 +327,11 @@ func (p *parser) parseTest() (node, error) {
 		return nil, p.errorf(v, "unexpected token %s", v)
 	}
 
-	if next := p.read(); next.typ != tokenRightDelim {
-		return nil, p.errorf(next, "unexpected token %s", next)
-	}
-
-	var (
-		tokens []token
-		stack  = 1
-	)
-	for {
-		read, err := p.readv(t)
-		if err != nil {
-			return nil, err
-		}
-		tokens = append(tokens, read...)
-		if len(read) > 1 {
-			// Check the token that preceeded the matching identifier. For
-			// section start and inverse tokens we increase the stack, otherwise
-			// decrease.
-			tt := read[len(read)-2]
-			switch {
-			case tt.typ == tokenTestValue:
-				stack++
-			case tt.typ == tokenSectionEnd:
-				stack--
-			}
-		}
-		if stack == 0 {
-			break
-		}
-	}
-	nodes, err := subParser(tokens[:len(tokens)-3], p.escape).parse()
+	nodes, err := p.parseSectionInternal(t)
 	if err != nil {
 		return nil, err
 	}
+
 	section := &testNode{
 		testIdent: i.val,
 		testVal:   v.val,

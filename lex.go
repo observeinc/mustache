@@ -85,16 +85,16 @@ type stateFn func(*lexer) stateFn
 
 // lexer holds the state of the scanner.
 type lexer struct {
-	name             string     // the name of the input; used only for error reports.
-	input            string     // the string being scanned.
-	leftDelim        string     // start of action.
-	rightDelim       string     // end of action.
-	state            stateFn    // the next lexing function to enter.
-	pos              int        // current position in the input.
-	start            int        // start position of this token.
-	width            int        // width of last rune read from input.
-	tokens           chan token // channel of scanned tokens.
-	testValueSection bool       // supports non-standard {{#has_value <ident> value}}
+	name                string     // the name of the input; used only for error reports.
+	input               string     // the string being scanned.
+	leftDelim           string     // start of action.
+	rightDelim          string     // end of action.
+	state               stateFn    // the next lexing function to enter.
+	pos                 int        // current position in the input.
+	start               int        // start position of this token.
+	width               int        // width of last rune read from input.
+	tokens              chan token // channel of scanned tokens.
+	useTestValueSection bool       // supports non-standard {{#test_value <ident> value}}
 }
 
 // next returns the next rune in the input.
@@ -199,11 +199,11 @@ func (l *lexer) String() string {
 // newLexer creates a new scanner for the input string.
 func newLexer(input, left, right string, testValueSection bool) *lexer {
 	l := &lexer{
-		input:            input,
-		leftDelim:        left,
-		rightDelim:       right,
-		tokens:           make(chan token, 2),
-		testValueSection: testValueSection,
+		input:               input,
+		leftDelim:           left,
+		rightDelim:          right,
+		tokens:              make(chan token, 2),
+		useTestValueSection: testValueSection,
 	}
 	l.state = stateText // initial state
 	return l
@@ -322,7 +322,7 @@ func stateTag(l *lexer) stateFn {
 	if strings.HasPrefix(l.input[l.pos:], l.rightDelim) {
 		return stateRightDelim
 	}
-	if l.testValueSection && strings.HasPrefix(l.input[l.pos:], "#test_value") {
+	if l.useTestValueSection && strings.HasPrefix(l.input[l.pos:], "#test_value") {
 		return stateTest
 	}
 	switch r := l.next(); {

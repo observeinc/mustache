@@ -198,6 +198,16 @@ func TestSectionTestValue(t *testing.T) {
 			map[string]string{"a": "value", "b": "hidden"},
 			`some text thing here`,
 		},
+		{ // test nil lookup
+			`some text {{#test_value {{aa}} "value"}}hidden{{/test_value}} here`,
+			map[string]string{"a": "value"},
+			`some text  here`,
+		},
+		{ // Test nesting normal section
+			`some text {{#test_value {{a}} "value"}}{{#b}}{{.}}{{/b}}{{/test_value}} here`,
+			map[string]interface{}{"a": "value", "b": []int{1, 2, 3}},
+			`some text 123 here`,
+		},
 	}
 	for _, test := range tests {
 		input := strings.NewReader(test.template)

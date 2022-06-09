@@ -88,6 +88,16 @@ func TestParser(t *testing.T) {
 			},
 		},
 		{
+			"{{#test_value {{foo}} \"bar\"}}{{#a}}{{b}}{{/a}}{{/test_value}}",
+			[]node{
+				&testNode{"foo", "bar", []node{
+					&sectionNode{"a", false, []node{
+						&varNode{"b", htmlEscape},
+					}},
+				}},
+			},
+		},
+		{
 			"{{#list}}({{a}a}}){{/list}}",
 			[]node{
 				&sectionNode{"list", false, []node{

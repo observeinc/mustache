@@ -133,11 +133,13 @@ func (n *testNode) render(t *Template, w *writer, c ...interface{}) error {
 	w.tag()
 	defer w.tag()
 	v, _ := lookup(n.testIdent, c...)
-	vs := strings.Builder{}
-	print(&vs, v, noEscape)
-	if vs.String() == n.testVal {
-		for _, elem := range n.elems {
-			elem.render(t, w, c...)
+	if v != nil {
+		vs := strings.Builder{}
+		print(&vs, v, noEscape)
+		if vs.String() == n.testVal {
+			for _, elem := range n.elems {
+				elem.render(t, w, c...)
+			}
 		}
 	}
 	return nil
