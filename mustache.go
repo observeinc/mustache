@@ -121,6 +121,30 @@ func (n *sectionNode) render(t *Template, w *writer, c ...interface{}) error {
 	return fmt.Errorf("failed to lookup %s", n.name)
 }
 
+// The testNode type is a complex node which recursively renders its child
+// elements while passing along its context along with the global context.
+type testNode struct {
+	testIdent string
+	testVal   string
+	elems     []node
+}
+
+func (n *testNode) render(t *Template, w *writer, c ...interface{}) error {
+	w.tag()
+	defer w.tag()
+	v, _ := lookup(n.testIdent, c...)
+	if v != nil {
+		vs := strings.Builder{}
+		print(&vs, v, noEscape)
+		if vs.String() == n.testVal {
+			for _, elem := range n.elems {
+				elem.render(t, w, c...)
+			}
+		}
+	}
+	return nil
+}
+
 func (n *sectionNode) String() string {
 	return fmt.Sprintf("[section: %q inv: %t elems: %s]", n.name, n.inverted, n.elems)
 }
@@ -295,26 +319,36 @@ func JsonEscape() Option {
 	}
 }
 
+// If you specify this option, then this Template will support
+// {{#test_value ident value}} sections
+func TestValueSection() Option {
+	return func(t *Template) {
+		t.testValueSection = true
+	}
+}
+
 // The Template type represents a template and its components.
 type Template struct {
-	name       string
-	elems      []node
-	partials   map[string]*Template
-	startDelim string
-	endDelim   string
-	silentMiss bool
-	escape     escapeType
+	name             string
+	elems            []node
+	partials         map[string]*Template
+	startDelim       string
+	endDelim         string
+	silentMiss       bool
+	testValueSection bool
+	escape           escapeType
 }
 
 // New returns a new Template instance.
 func New(options ...Option) *Template {
 	t := &Template{
-		elems:      make([]node, 0),
-		partials:   make(map[string]*Template),
-		startDelim: "{{",
-		endDelim:   "}}",
-		silentMiss: true,
-		escape:     htmlEscape,
+		elems:            make([]node, 0),
+		partials:         make(map[string]*Template),
+		startDelim:       "{{",
+		endDelim:         "}}",
+		silentMiss:       true,
+		testValueSection: false,
+		escape:           htmlEscape,
 	}
 	t.Option(options...)
 	return t
@@ -334,7 +368,7 @@ func (t *Template) Parse(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	l := newLexer(string(b), t.startDelim, t.endDelim)
+	l := newLexer(string(b), t.startDelim, t.endDelim, t.testValueSection)
 	p := newParser(l, t.escape)
 	elems, err := p.parse()
 	if err != nil {

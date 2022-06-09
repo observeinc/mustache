@@ -78,6 +78,26 @@ func TestParser(t *testing.T) {
 			},
 		},
 		{
+			"{{#test_value {{foo}} \"bar\"}}({{a}a}}){{/test_value}}",
+			[]node{
+				&testNode{"foo", "bar", []node{
+					textNode("("),
+					&varNode{"a}a", htmlEscape},
+					textNode(")"),
+				}},
+			},
+		},
+		{
+			"{{#test_value {{foo}} \"bar\"}}{{#a}}{{b}}{{/a}}{{/test_value}}",
+			[]node{
+				&testNode{"foo", "bar", []node{
+					&sectionNode{"a", false, []node{
+						&varNode{"b", htmlEscape},
+					}},
+				}},
+			},
+		},
+		{
 			"{{#list}}({{a}a}}){{/list}}",
 			[]node{
 				&sectionNode{"list", false, []node{
@@ -88,7 +108,7 @@ func TestParser(t *testing.T) {
 			},
 		},
 	} {
-		parser := newParser(newLexer(test.template, "{{", "}}"), htmlEscape)
+		parser := newParser(newLexer(test.template, "{{", "}}", true), htmlEscape)
 		elems, err := parser.parse()
 		if err != nil {
 			t.Fatal(err)
@@ -110,8 +130,28 @@ func TestParserNegative(t *testing.T) {
 			"{{foo}",
 			`1:6 syntax error: unreachable code t_error:"unclosed tag"`,
 		},
+		{
+			"{{#test_value {{a}} b}}",
+			`1:21 syntax error: unexpected token t_error:"invalid test_value value token"`,
+		},
+		{
+			"{{#test_value {{a}} \"b}}",
+			`1:24 syntax error: unexpected token t_error:"failed to find close \" for test_value value token"`,
+		},
+		{
+			"{{#test_value {{a}} \"b\"}}",
+			`token "t_ident" not found`,
+		},
+		{
+			"{{#test_value a b}}",
+			`1:14 syntax error: unexpected token t_error:"Missing test_value identifier"`,
+		},
+		{
+			"{{#test_value {{a b\"}}",
+			`1:22 syntax error: unexpected token t_error:"invalid test_value value token"`,
+		},
 	} {
-		parser := newParser(newLexer(test.template, "{{", "}}"), htmlEscape)
+		parser := newParser(newLexer(test.template, "{{", "}}", true), htmlEscape)
 		_, err := parser.parse()
 		if err == nil || !strings.Contains(err.Error(), test.expErr) {
 			t.Errorf("expect error: %q, got %q", test.expErr, err)
