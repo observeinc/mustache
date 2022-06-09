@@ -1,3 +1,3 @@
-module github.com/alexkappa/mustache
+module github.com/observeinc/mustache
 
-go 1.12
+go 1.17

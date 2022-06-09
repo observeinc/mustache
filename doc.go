@@ -21,7 +21,7 @@ output types. It is quite common to need to write the output of the template to
 an http.ResponseWriter. In this case the Render function is the most apropriate.
 
     import "net/http"
-    import "github.com/alexkappa/mustache"
+    import "github.com/observeinc/mustache"
 
     func ServeHTTP(w http.ResponseWriter, r *http.Request) {
         template, err := mustache.ParseString("Hello, {{subject}}!")
