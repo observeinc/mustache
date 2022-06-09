@@ -94,7 +94,7 @@ loop:
 	return nodes, nil
 }
 
-// parseTag parses a beggining of a mustache tag. It is assumed that a leftDelim
+// parseTag parses a beginning of a mustache tag. It is assumed that a leftDelim
 // was already read by the parser.
 func (p *parser) parseTag() (node, error) {
 	token := p.read()
@@ -214,7 +214,7 @@ func (p *parser) parseSectionInternal(t token) ([]node, error) {
 		}
 		tokens = append(tokens, read...)
 		if len(read) > 1 {
-			// Check the token that preceeded the matching identifier. For
+			// Check the token that preceded the matching identifier. For
 			// section start and inverse tokens we increase the stack for sections or testValue for those special sections, otherwise
 			// decrease.
 			tt := read[len(read)-2]

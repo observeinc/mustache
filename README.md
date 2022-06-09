@@ -2,6 +2,7 @@
 
 [![godoc reference](https://godoc.org/github.com/observeinc/mustache?status.svg)](https://godoc.org/github.com/observeinc/mustache)
 [![Tests Actions Status](https://github.com/observeinc/mustache/workflows/Go/badge.svg)](https://github.com/observeinc/mustache/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/observeinc/mustache)](https://goreportcard.com/report/github.com/observeinc/mustache)
 
 This is an implementation of the mustache templating language in Go.
 

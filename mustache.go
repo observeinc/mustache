@@ -188,7 +188,7 @@ func (n *sectionNode) String() string {
 	return fmt.Sprintf("[section: %q inv: %t elems: %s]", n.name, n.inverted, n.elems)
 }
 
-// The commentNode type is a part of the template wich gets ignored. Perhaps it
+// The commentNode type is a part of the template which gets ignored. Perhaps it
 // can be optionally enabled to print comments.
 type commentNode string
 

@@ -243,7 +243,7 @@ func stateLeftDelim(l *lexer) stateFn {
 	if l.peek() == '=' {
 		// When the lexer encounters "{{=" it proceeds to the set delimiter
 		// state which alters the left and right delimiters. This operation is
-		// hidden from the parser and no tokens are emited.
+		// hidden from the parser and no tokens are emitted.
 		l.next()
 		return stateSetDelim
 	}
@@ -377,7 +377,7 @@ func stateIdentWithMode(exitState stateFn) stateFn {
 				l.next()
 			default:
 				// We've found presumably the closing bracket.
-				// backup by the ammount of the counted whitespace so as to not include it
+				// backup by the amount of the counted whitespace so as to not include it
 				// in the ident token.
 				//
 				// This whitespace will we add back will be ignored as part of the stateTag
