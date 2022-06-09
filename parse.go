@@ -4,14 +4,12 @@ package mustache
 
 import (
 	"fmt"
-	"io"
 )
 
 type parser struct {
 	lexer  *lexer
 	escape escapeType
 	buf    []token
-	ast    []node
 }
 
 // read returns the next token from the lexer and advances the cursor. This
@@ -23,21 +21,6 @@ func (p *parser) read() token {
 		return r
 	}
 	return p.lexer.token()
-}
-
-// readn returns the next n tokens from the lexer and advances the cursor. If it
-// coundn't read all n tokens, for example if a tokenEOF was returned by the
-// lexer, an error is returned and the returned slice will have all tokens read
-// until that point, including tokenEOF.
-func (p *parser) readn(n int) ([]token, error) {
-	tokens := make([]token, 0, n) // make a slice capable of storing up to n tokens
-	for i := 0; i < n; i++ {
-		tokens = append(tokens, p.read())
-		if tokens[i].typ == tokenEOF {
-			return tokens, io.EOF
-		}
-	}
-	return tokens, nil
 }
 
 // readt returns the tokens starting from the current position until the first
@@ -73,56 +56,6 @@ func (p *parser) readv(t token) ([]token, error) {
 		}
 	}
 	return tokens, nil
-}
-
-// peek returns the next token without advancing the cursor. Consecutive calls
-// of peek would result in the same token being retuned. To advance the cursor,
-// a read must be made.
-func (p *parser) peek() token {
-	if len(p.buf) > 0 {
-		return p.buf[0]
-	}
-	t := p.lexer.token()
-	p.buf = append(p.buf, t)
-	return t
-}
-
-// peekn returns the next n tokens without advancing the cursor.
-func (p *parser) peekn(n int) ([]token, error) {
-	if len(p.buf) > n {
-		return p.buf[:n], nil
-	}
-	for i := len(p.buf) - 1; i < n; i++ {
-		t := p.lexer.token()
-		p.buf = append(p.buf, t)
-		if t.typ == tokenEOF {
-			return p.buf, io.EOF
-		}
-	}
-	return p.buf, nil
-}
-
-// peekt returns the tokens from the current postition until the first match of
-// t. it will not advance the cursor.
-func (p *parser) peekt(t tokenType) ([]token, error) {
-	for i := 0; i < len(p.buf); i++ {
-		switch p.buf[i].typ {
-		case t:
-			return p.buf[:i], nil
-		case tokenEOF:
-			return p.buf[:i], io.EOF
-		}
-	}
-	for {
-		token := p.lexer.token()
-		p.buf = append(p.buf, token)
-		switch token.typ {
-		case t:
-			return p.buf, nil
-		case tokenEOF:
-			return p.buf, io.EOF
-		}
-	}
 }
 
 func (p *parser) errorf(t token, format string, v ...interface{}) error {

@@ -12,6 +12,25 @@ import (
 	"strings"
 )
 
+type ErrorSlice []error
+
+func (es ErrorSlice) Error() string {
+	b := strings.Builder{}
+	b.WriteRune('[')
+	first := true
+	for _, e := range es {
+		if first {
+			first = false
+		} else {
+			b.WriteString(", ")
+		}
+		b.WriteString(e.Error())
+	}
+	b.WriteRune(']')
+
+	return b.String()
+}
+
 // The node type is the base type that represents a node in the parse tree.
 type node interface {
 	// The render function should be defined by any type wishing to satisfy the
@@ -96,11 +115,18 @@ type sectionNode struct {
 func (n *sectionNode) render(t *Template, w *writer, c ...interface{}) error {
 	w.tag()
 	defer w.tag()
+
+	errs := ErrorSlice{}
+
 	elemFn := func(v ...interface{}) {
 		for _, elem := range n.elems {
-			elem.render(t, w, append(v, c...)...)
+			err := elem.render(t, w, append(v, c...)...)
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
+
 	v, ok := lookup(n.name, c...)
 	if ok != n.inverted {
 		r := reflect.ValueOf(v)
@@ -116,9 +142,13 @@ func (n *sectionNode) render(t *Template, w *writer, c ...interface{}) error {
 		default:
 			elemFn(v)
 		}
-		return nil
 	}
-	return fmt.Errorf("failed to lookup %s", n.name)
+	if len(errs) != 0 {
+		if !t.silentMiss {
+			return errs
+		}
+	}
+	return nil
 }
 
 // The testNode type is a complex node which recursively renders its child
@@ -132,14 +162,23 @@ type testNode struct {
 func (n *testNode) render(t *Template, w *writer, c ...interface{}) error {
 	w.tag()
 	defer w.tag()
+	errs := ErrorSlice{}
 	v, _ := lookup(n.testIdent, c...)
 	if v != nil {
 		vs := strings.Builder{}
 		print(&vs, v, noEscape)
 		if vs.String() == n.testVal {
 			for _, elem := range n.elems {
-				elem.render(t, w, c...)
+				err := elem.render(t, w, c...)
+				if err != nil {
+					errs = append(errs, err)
+				}
 			}
+		}
+	}
+	if len(errs) != 0 {
+		if !t.silentMiss {
+			return errs
 		}
 	}
 	return nil
@@ -171,8 +210,14 @@ func (p *partialNode) render(t *Template, w *writer, c ...interface{}) error {
 	w.tag()
 	if template, ok := t.partials[p.name]; ok {
 		template.partials = t.partials
-		template.render(w, c...)
+		err := template.render(w, c...)
+		if err != nil {
+			if !t.silentMiss {
+				return err
+			}
+		}
 	}
+
 	return nil
 }
 
@@ -222,7 +267,7 @@ func print(w io.Writer, v interface{}, needEscape escapeType) {
 // The escape function replicates the text/template.HTMLEscapeString but keeps
 // "&apos;" and "&quot;" for compatibility with the mustache spec.
 func escapeHtml(s string) string {
-	if strings.IndexAny(s, `'"&<>`) < 0 {
+	if !strings.ContainsAny(s, `'"&<>`) {
 		return s
 	}
 	var b bytes.Buffer

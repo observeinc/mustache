@@ -85,7 +85,6 @@ type stateFn func(*lexer) stateFn
 
 // lexer holds the state of the scanner.
 type lexer struct {
-	name                string     // the name of the input; used only for error reports.
 	input               string     // the string being scanned.
 	leftDelim           string     // start of action.
 	rightDelim          string     // end of action.

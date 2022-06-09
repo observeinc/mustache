@@ -11,32 +11,48 @@ import (
 
 func ExampleTemplate_basic() {
 	template := New()
-	template.ParseString(`{{#foo}}{{bar}}{{/foo}}`)
+	parseErr := template.ParseString(`{{#foo}}{{bar}}{{/foo}}`)
+	if parseErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse template: %s\n", parseErr)
+	}
 
 	context := map[string]interface{}{
 		"foo": true,
 		"bar": "bazinga!",
 	}
 
-	output, _ := template.RenderString(context)
+	output, err := template.RenderString(context)
 	fmt.Println(output)
 	// Output: bazinga!
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to render template: %s\n", err)
+	}
 }
 
 func ExampleTemplate_partials() {
 	partial := New(Name("partial"))
-	partial.ParseString(`{{bar}}`)
+	parseErr := partial.ParseString(`{{bar}}`)
+	if parseErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse template: %s\n", parseErr)
+	}
 
 	template := New(Partial(partial))
-	template.ParseString(`{{#foo}}{{>partial}}{{/foo}}`)
+	templateErr := template.ParseString(`{{#foo}}{{>partial}}{{/foo}}`)
+	if templateErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse template: %s\n", templateErr)
+	}
 
 	context := map[string]interface{}{
 		"foo": true,
 		"bar": "bazinga!",
 	}
 
-	template.Render(os.Stdout, context)
+	err := template.Render(os.Stdout, context)
 	// Output: bazinga!
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to render template: %s\n", err)
+	}
 }
 
 func ExampleTemplate_reader() {
@@ -48,7 +64,11 @@ func ExampleTemplate_reader() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to parse template: %s\n", err)
 	}
-	t.Render(os.Stdout, nil)
+	err = t.Render(os.Stdout, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to render template: %s\n", err)
+	}
+
 }
 
 func ExampleTemplate_http() {
@@ -56,12 +76,19 @@ func ExampleTemplate_http() {
 	request, _ := http.NewRequest("GET", "http://example.com?foo=bar&bar=one&bar=two", nil)
 
 	template := New()
-	template.ParseString(`
+	err := template.ParseString(`
 <ul>{{#foo}}<li>{{.}}</li>{{/foo}}</ul>
 <ul>{{#bar}}<li>{{.}}</li>{{/bar}}</ul>`)
 
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse template: %s\n", err)
+	}
+
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		template.Render(w, r.URL.Query())
+		err := template.Render(w, r.URL.Query())
+		if err != nil {
+			fmt.Fprint(w, err.Error())
+		}
 	}
 
 	handler(writer, request)
@@ -73,12 +100,20 @@ func ExampleTemplate_http() {
 }
 
 func ExampleOption() {
-	title := New(Name("header"))   // instantiate and name the template
-	title.ParseString("{{title}}") // parse a template string
+	title := New(Name("header"))               // instantiate and name the template
+	titleErr := title.ParseString("{{title}}") // parse a template string
+	// If there was an error do something with it.
+	if titleErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse template: %s\n", titleErr)
+	}
 
 	body := New()
 	body.Option(Name("body")) // options can be defined after we instantiate too
-	body.ParseString("{{content}}")
+	parseErr := body.ParseString("{{content}}")
+	// If there was an error do something with it.
+	if parseErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse template: %s\n", parseErr)
+	}
 
 	template := New(
 		Delimiters("|", "|"), // set the mustache delimiters to | instead of {{
@@ -86,14 +121,23 @@ func ExampleOption() {
 		Partial(title),       // register a partial
 		Partial(body))        // and another one...
 
-	template.ParseString("|>header|\n|>body|")
+	templateErr := template.ParseString("|>header|\n|>body|")
+	if templateErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse template: %s\n", templateErr)
+	}
 
 	context := map[string]interface{}{
 		"title":   "Mustache",
 		"content": "Logic less templates with Mustache!",
 	}
 
-	template.Render(os.Stdout, context)
+	renderErr := template.Render(os.Stdout, context)
+
 	// Output: Mustache
 	// Logic less templates with Mustache!
+
+	// If there was an error do something with it.
+	if renderErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to render template: %s\n", renderErr)
+	}
 }
