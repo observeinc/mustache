@@ -18,7 +18,7 @@ http://mustache.github.io.
 
 There are several wrappers of Parse and Render to help with different input or
 output types. It is quite common to need to write the output of the template to
-an http.ResponseWriter. In this case the Render function is the most apropriate.
+an http.ResponseWriter. In this case the Render function is the most appropriate.
 
     import "net/http"
     import "github.com/observeinc/mustache"

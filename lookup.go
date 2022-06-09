@@ -36,53 +36,26 @@ func lookup(name string, context ...interface{}) (interface{}, bool) {
 		// If the current context is a map, we'll look for a key in that map
 		// that matches the name.
 		case reflect.Map:
-			item := reflectValue.MapIndex(reflect.ValueOf(name))
-			if item.IsValid() {
-				return item.Interface(), truth(item)
+			val, ok, found := lookup_map(name, reflectValue)
+			if found {
+				return val, ok
 			}
+
 		// If the current context is a struct, we'll look for a property in that
-		// struct that matches the name. In the near future I'd like to add
-		// support for matching struct names to tags so we can use lower_case
-		// names in our templates which makes it more mustache like.
+		// struct that matches the name.
 		case reflect.Struct:
-			field := reflectValue.FieldByName(name)
-			if field.IsValid() && field.CanInterface() {
-				return field.Interface(), truth(field)
-			}
-			method := reflectValue.MethodByName(name)
-			if method.IsValid() && method.Type().NumIn() == 1 {
-				out := method.Call(nil)[0]
-				return out.Interface(), truth(out)
+			val, ok, found := lookup_struct(name, reflectValue)
+			if found {
+				return val, ok
 			}
 
-			typ := reflectValue.Type()
-			for i := 0; i < typ.NumField(); i++ {
-				f := typ.Field(i)
-				if f.PkgPath != "" {
-					continue
-				}
-				tag := f.Tag.Get("mustache")
-				if tag == name {
-					field := reflectValue.Field(i)
-					if field.IsValid() {
-						return field.Interface(), truth(field)
-					}
-				}
-			}
-
+		// If the current context is an array or slice, we'll try to find the current
+		// name as an index in the context.
 		case reflect.Array, reflect.Slice:
-			idx, err := strconv.Atoi(name)
-			if err != nil {
-				continue
+			val, ok, found := lookup_array(name, reflectValue)
+			if found {
+				return val, ok
 			}
-			if reflectValue.Len() <= idx || idx < 0 {
-				continue
-			}
-			field := reflectValue.Index(idx)
-			if field.IsValid() {
-				return field.Interface(), truth(field)
-			}
-
 		}
 		// If by this point no value was matched, we'll move up a step in the
 		// chain and try to match a value there.
@@ -90,6 +63,59 @@ func lookup(name string, context ...interface{}) (interface{}, bool) {
 	// We've exhausted the whole context chain and found nothing. Return a nil
 	// value and a negative truth.
 	return nil, false
+}
+
+func lookup_map(name string, reflectValue reflect.Value) (value interface{}, ok bool, found bool) {
+	item := reflectValue.MapIndex(reflect.ValueOf(name))
+	if item.IsValid() {
+		return item.Interface(), truth(item), true
+	}
+	return nil, false, false
+
+}
+
+func lookup_struct(name string, reflectValue reflect.Value) (value interface{}, ok bool, found bool) {
+	field := reflectValue.FieldByName(name)
+	if field.IsValid() && field.CanInterface() {
+		return field.Interface(), truth(field), true
+	}
+	method := reflectValue.MethodByName(name)
+	if method.IsValid() && method.Type().NumIn() == 1 {
+		out := method.Call(nil)[0]
+		return out.Interface(), truth(out), true
+	}
+
+	typ := reflectValue.Type()
+	for i := 0; i < typ.NumField(); i++ {
+		f := typ.Field(i)
+		if f.PkgPath != "" {
+			continue
+		}
+		tag := f.Tag.Get("mustache")
+		if tag == name {
+			field := reflectValue.Field(i)
+			if field.IsValid() {
+				return field.Interface(), truth(field), true
+			}
+		}
+	}
+	return nil, false, false
+}
+
+func lookup_array(name string, reflectValue reflect.Value) (value interface{}, ok bool, found bool) {
+	idx, err := strconv.Atoi(name)
+	if err != nil {
+		return nil, false, false
+	}
+	if reflectValue.Len() <= idx || idx < 0 {
+		return nil, false, false
+	}
+	field := reflectValue.Index(idx)
+	if field.IsValid() {
+		return field.Interface(), truth(field), true
+	}
+
+	return nil, false, false
 }
 
 // The truth function will tell us if r is a truthy value or not. This is
