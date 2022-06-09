@@ -287,15 +287,43 @@ func stateTag(l *lexer) stateFn {
 
 // stateIdent scans an partial tag or field.
 func stateIdent(l *lexer) stateFn {
+	// Ignore leading whitespace, start by consuming all whitespace
+	for whitespace(l.peek()) {
+		l.next()
+	}
+	// ignore the accumulated whitespace.
+	l.ignore()
+
+	// Now we need to track trailing whitespace.
+	whitespaceCount := 0
 Loop:
 	for {
 		switch r := l.peek(); {
 		case r == eof:
 			return l.errorf("unclosed tag")
 		case !whitespace(r) && !strings.HasPrefix(l.input[l.pos:], l.rightDelim):
-			// absorb
+			// If we found something not whitespace or closing tag
+			// then this is internal to a token
+			whitespaceCount = 0
+
+			// absorb the rune
+			l.next()
+		case whitespace(r):
+			// mark this whitespace and advance the rune, we will backup over this
+			// if this is the end of the ident token.
+			whitespaceCount += 1
 			l.next()
 		default:
+			// We've found presumably the closing bracket.
+			// backup by the ammount of the counted whitespace so as to not include it
+			// in the ident token.
+			//
+			// This whitespace will we add back will be ignored as part of the stateTag
+			// processing.
+			for whitespaceCount > 0 {
+				whitespaceCount -= 1
+				l.backup()
+			}
 			l.emit(tokenIdentifier)
 			break Loop
 		}
