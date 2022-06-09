@@ -23,10 +23,10 @@ func ExampleTemplate_basic() {
 
 	output, err := template.RenderString(context)
 	fmt.Println(output)
-	// Output: bazinga!
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to render template: %s\n", err)
 	}
+	// Output: bazinga!
 }
 
 func ExampleTemplate_partials() {
@@ -48,11 +48,10 @@ func ExampleTemplate_partials() {
 	}
 
 	err := template.Render(os.Stdout, context)
-	// Output: bazinga!
-
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to render template: %s\n", err)
 	}
+	// Output: bazinga!
 }
 
 func ExampleTemplate_reader() {
@@ -132,12 +131,11 @@ func ExampleOption() {
 	}
 
 	renderErr := template.Render(os.Stdout, context)
-
-	// Output: Mustache
-	// Logic less templates with Mustache!
-
 	// If there was an error do something with it.
 	if renderErr != nil {
 		fmt.Fprintf(os.Stderr, "failed to render template: %s\n", renderErr)
 	}
+
+	// Output: Mustache
+	// Logic less templates with Mustache!
 }
