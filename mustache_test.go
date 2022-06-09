@@ -162,3 +162,21 @@ func TestObjectOutputUnescaped(t *testing.T) {
 		t.Errorf("expected %q got %q", expected, output.String())
 	}
 }
+
+func TestInterpolationWithWhitespace(t *testing.T) {
+	input := strings.NewReader("some text {{foo.bar baz.foo}} here")
+	template := New()
+	err := template.Parse(input)
+	if err != nil {
+		t.Error(err)
+	}
+	var output bytes.Buffer
+	err = template.Render(&output, map[string]map[string]map[string]string{"foo": {"bar baz": {"foo": "bar %2B"}}})
+	if err != nil {
+		t.Error(err)
+	}
+	expected := "some text bar %2B here"
+	if output.String() != expected {
+		t.Errorf("expected %q got %q", expected, output.String())
+	}
+}
