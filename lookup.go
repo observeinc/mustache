@@ -5,6 +5,7 @@ package mustache
 
 import (
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -67,6 +68,19 @@ func lookup(name string, context ...interface{}) (interface{}, bool) {
 						return field.Interface(), truth(field)
 					}
 				}
+			}
+
+		case reflect.Array, reflect.Slice:
+			idx, err := strconv.Atoi(name)
+			if err != nil {
+				continue
+			}
+			if reflectValue.Len() <= idx || idx < 0 {
+				continue
+			}
+			field := reflectValue.Index(idx)
+			if field.IsValid() {
+				return field.Interface(), truth(field)
 			}
 
 		}

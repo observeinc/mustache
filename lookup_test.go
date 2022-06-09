@@ -42,6 +42,8 @@ func TestSimpleLookup(t *testing.T) {
 			context: struct {
 				Integer  int
 				String   string
+				Array    [3]int
+				Slice    []int
 				Boolean  bool
 				Nested   struct{ Inside string }
 				Tagged   string `mustache:"newName"`
@@ -50,7 +52,7 @@ func TestSimpleLookup(t *testing.T) {
 				ValidPtr *string
 				NilPtr   *string
 			}{
-				123, "abc", true, struct{ Inside string }{"I'm nested!"}, "xyz", "bad", "bad", &stringForPtr, nil,
+				123, "abc", [3]int{1, 2, 3}, []int{1}, true, struct{ Inside string }{"I'm nested!"}, "xyz", "bad", "bad", &stringForPtr, nil,
 			},
 			assertions: []struct {
 				name  string
@@ -68,6 +70,36 @@ func TestSimpleLookup(t *testing.T) {
 				{"fail", nil, false},
 				{"ValidPtr", &stringForPtr, true},
 				{"NilPtr", nilStrPtr, false},
+				{"Array.2", 3, true},
+				{"Slice.0", 1, true},
+				{"Slice.2", nil, false},
+				{"Slice.-1", nil, false},
+				{"Slice.a", nil, false},
+			},
+		},
+		{
+			context: map[string]interface{}{
+				"outer": []interface{}{[]int{1}, []int{1, 2}},
+			},
+			assertions: []struct {
+				name  string
+				value interface{}
+				truth bool
+			}{
+				{"outer.1.0", 1, true},
+			},
+		},
+		{
+			context: []map[string]int{
+				{"a": 1},
+				{"b": 2},
+			},
+			assertions: []struct {
+				name  string
+				value interface{}
+				truth bool
+			}{
+				{"1.b", 2, true},
 			},
 		},
 	} {
