@@ -31,16 +31,12 @@ func (es ErrorSlice) Error() string {
 	return b.String()
 }
 
-func maybeAddNode(seenNodes map[node]struct{}, newNode node) bool {
-	if _, ok := seenNodes[newNode]; !ok {
-		seenNodes[newNode] = struct{}{}
-		return true
+func tryAddNode(visitedNodes map[node]struct{}, newNode node) error {
+	if _, ok := visitedNodes[newNode]; !ok {
+		visitedNodes[newNode] = struct{}{}
+		return nil
 	}
-	return false
-}
-
-func nodeAlreadyVisitedError(node string) error {
-	return fmt.Errorf("the node %s has been already visited in the mustache node graph", node)
+	return fmt.Errorf("the node %s has been already visited in the mustache node graph", newNode.String())
 }
 
 // The node type is the base type that represents a node in the parse tree.
@@ -48,7 +44,11 @@ type node interface {
 	// The render function should be defined by any type wishing to satisfy the
 	// node interface. Implementations should be able to render itself to the
 	// w Writer with c given as context.
-	render(t *Template, w *writer, seenNodes map[node]struct{}, c ...interface{}) error
+	render(t *Template, w *writer, visitedNodes map[node]struct{}, c ...interface{}) error
+
+	// The String() function returns back the node interface in the format of
+	// [(node_name):... (node_name.field_1):... (node_name:field_n):...]
+	String() string
 }
 
 // The textNode type represents a part of the template that is made up solely of
@@ -100,6 +100,8 @@ type varNode struct {
 	escape escapeType
 }
 
+var _ node = (*varNode)(nil)
+
 func (n *varNode) render(t *Template, w *writer, _ map[node]struct{}, c ...interface{}) error {
 	w.text()
 	v, _ := lookup(n.name, c...)
@@ -124,11 +126,13 @@ type sectionNode struct {
 	elems    []node
 }
 
-func (n *sectionNode) render(t *Template, w *writer, seenNodes map[node]struct{}, c ...interface{}) error {
-	if !maybeAddNode(seenNodes, n) {
-		return nodeAlreadyVisitedError(n.String())
+var _ node = (*sectionNode)(nil)
+
+func (n *sectionNode) render(t *Template, w *writer, visitedNodes map[node]struct{}, c ...interface{}) error {
+	if err := tryAddNode(visitedNodes, n); err != nil {
+		return err
 	}
-	defer delete(seenNodes, n)
+	defer delete(visitedNodes, n)
 
 	w.tag()
 	defer w.tag()
@@ -137,7 +141,7 @@ func (n *sectionNode) render(t *Template, w *writer, seenNodes map[node]struct{}
 
 	elemFn := func(v ...interface{}) {
 		for _, elem := range n.elems {
-			err := elem.render(t, w, seenNodes, append(v, c...)...)
+			err := elem.render(t, w, visitedNodes, append(v, c...)...)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -176,11 +180,13 @@ type testNode struct {
 	elems     []node
 }
 
-func (n *testNode) render(t *Template, w *writer, seenNodes map[node]struct{}, c ...interface{}) error {
-	if !maybeAddNode(seenNodes, n) {
-		return nodeAlreadyVisitedError(n.String())
+var _ node = (*testNode)(nil)
+
+func (n *testNode) render(t *Template, w *writer, visitedNodes map[node]struct{}, c ...interface{}) error {
+	if err := tryAddNode(visitedNodes, n); err != nil {
+		return err
 	}
-	defer delete(seenNodes, n)
+	defer delete(visitedNodes, n)
 
 	w.tag()
 	defer w.tag()
@@ -191,7 +197,7 @@ func (n *testNode) render(t *Template, w *writer, seenNodes map[node]struct{}, c
 		print(&vs, v, noEscape)
 		if vs.String() == n.testVal {
 			for _, elem := range n.elems {
-				err := elem.render(t, w, seenNodes, c...)
+				err := elem.render(t, w, visitedNodes, c...)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -218,6 +224,8 @@ func (n *sectionNode) String() string {
 // can be optionally enabled to print comments.
 type commentNode string
 
+var _ node = (*commentNode)(nil)
+
 func (n commentNode) render(t *Template, w *writer, _ map[node]struct{}, c ...interface{}) error {
 	w.tag()
 	return nil
@@ -232,16 +240,18 @@ type partialNode struct {
 	name string
 }
 
-func (p *partialNode) render(t *Template, w *writer, seenNodes map[node]struct{}, c ...interface{}) error {
-	if !maybeAddNode(seenNodes, p) {
-		return nodeAlreadyVisitedError(p.String())
+var _ node = (*partialNode)(nil)
+
+func (p *partialNode) render(t *Template, w *writer, visitedNodes map[node]struct{}, c ...interface{}) error {
+	if err := tryAddNode(visitedNodes, p); err != nil {
+		return err
 	}
-	defer delete(seenNodes, p)
+	defer delete(visitedNodes, p)
 
 	w.tag()
 	if template, ok := t.partials[p.name]; ok {
 		template.partials = t.partials
-		err := template.render(w, seenNodes, c...)
+		err := template.render(w, visitedNodes, c...)
 		if err != nil {
 			if !t.silentMiss {
 				return err
@@ -257,6 +267,8 @@ func (p *partialNode) String() string {
 }
 
 type delimNode string
+
+var _ node = (*delimNode)(nil)
 
 func (n delimNode) String() string {
 	return "[delim]"
@@ -464,9 +476,9 @@ func (t *Template) ParseBytes(b []byte) error {
 	return t.Parse(bytes.NewReader(b))
 }
 
-func (t *Template) render(w *writer, seenNodes map[node]struct{}, context ...interface{}) error {
+func (t *Template) render(w *writer, visitedNodes map[node]struct{}, context ...interface{}) error {
 	for _, elem := range t.elems {
-		err := elem.render(t, w, seenNodes, context...)
+		err := elem.render(t, w, visitedNodes, context...)
 		if err != nil {
 			if !t.silentMiss {
 				return err
