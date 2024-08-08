@@ -209,7 +209,16 @@ type partialNode struct {
 func (p *partialNode) render(t *Template, w *writer, c ...interface{}) error {
 	w.tag()
 	if template, ok := t.partials[p.name]; ok {
-		template.partials = t.partials
+
+		// We can avoid cycles by removing this node's template from the lookup
+		// before we render
+		template.partials = make(map[string]*Template)
+		for k, v := range t.partials {
+			if k != p.name {
+				template.partials[k] = v
+			}
+		}
+
 		err := template.render(w, c...)
 		if err != nil {
 			if !t.silentMiss {

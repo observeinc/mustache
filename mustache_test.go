@@ -228,3 +228,34 @@ func TestSectionTestValue(t *testing.T) {
 	}
 
 }
+
+func TestPartialsCannotCycle(t *testing.T) {
+	innerTemplate := New(Name("inner"))
+	err := innerTemplate.Parse(strings.NewReader(`I am the inner.{{>outer}}`))
+	if err != nil {
+		t.Error(err)
+	}
+
+	outerTemplate := New(Name("outer"))
+	err = outerTemplate.Parse(strings.NewReader(`I am the outer.{{>inner}}`))
+	if err != nil {
+		t.Error(err)
+	}
+
+	mainTemplate := New(Partial(outerTemplate), Partial(innerTemplate))
+	err = mainTemplate.Parse(strings.NewReader(`{{>outer}}`))
+	if err != nil {
+		t.Error(err)
+	}
+
+	var output bytes.Buffer
+	err = mainTemplate.Render(&output)
+	if err != nil {
+		t.Error(err)
+	}
+
+	expected := `I am the outer.I am the inner.`
+	if output.String() != expected {
+		t.Errorf("expected %q got %q", expected, output.String())
+	}
+}
