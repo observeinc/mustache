@@ -29,43 +29,45 @@ type tokenType int
 const (
 	tokenError tokenType = iota // error occurred; value is text of error
 	tokenEOF
-	tokenIdentifier     // tag identifier: non-whitespace characters NOT containing closing delimiter
-	tokenLeftDelim      // {{ left action delimiter
-	tokenRightDelim     // }} right action delimiter
-	tokenText           // plain text
-	tokenComment        // {{! this is a comment and is ignored}}
-	tokenSectionStart   // {{#foo}} denotes a section start
-	tokenSectionInverse // {{^foo}} denotes an inverse section start
-	tokenSectionEnd     // {{/foo}} denotes the closing of a section
-	tokenRawStart       // { denotes the beginning of an unencoded identifier
-	tokenRawEnd         // } denotes the end of an unencoded identifier
-	tokenRawAlt         // {{&foo}} is an alternative way to define raw tags
-	tokenPartial        // {{>foo}} denotes a partial
-	tokenSetDelim       // {{={% %}=}} sets delimiters to {% and %}
-	tokenSetLeftDelim   // denotes a custom left delimiter
-	tokenSetRightDelim  // denotes a custom right delimiter
-	tokenTestValue      // denotes a test value section
+	tokenIdentifier      // tag identifier: non-whitespace characters NOT containing closing delimiter
+	tokenLeftDelim       // {{ left action delimiter
+	tokenRightDelim      // }} right action delimiter
+	tokenText            // plain text
+	tokenComment         // {{! this is a comment and is ignored}}
+	tokenSectionStart    // {{#foo}} denotes a section start
+	tokenSectionInverse  // {{^foo}} denotes an inverse section start
+	tokenSectionFunction // {{~foo}} denotes a functional section where the contents will be passed for additional processing
+	tokenSectionEnd      // {{/foo}} denotes the closing of a section
+	tokenRawStart        // { denotes the beginning of an unencoded identifier
+	tokenRawEnd          // } denotes the end of an unencoded identifier
+	tokenRawAlt          // {{&foo}} is an alternative way to define raw tags
+	tokenPartial         // {{>foo}} denotes a partial
+	tokenSetDelim        // {{={% %}=}} sets delimiters to {% and %}
+	tokenSetLeftDelim    // denotes a custom left delimiter
+	tokenSetRightDelim   // denotes a custom right delimiter
+	tokenTestValue       // denotes a test value section
 )
 
 // Make the types prettyprint.
 var tokenName = map[tokenType]string{
-	tokenError:          "t_error",
-	tokenEOF:            "t_eof",
-	tokenIdentifier:     "t_ident",
-	tokenLeftDelim:      "t_left_delim",
-	tokenRightDelim:     "t_right_delim",
-	tokenText:           "t_text",
-	tokenComment:        "t_comment",
-	tokenSectionStart:   "t_section_start",
-	tokenSectionInverse: "t_section_inverse",
-	tokenSectionEnd:     "t_section_end",
-	tokenRawStart:       "t_raw_start",
-	tokenRawEnd:         "t_raw_end",
-	tokenRawAlt:         "t_raw_alt",
-	tokenPartial:        "t_partial",
-	tokenSetDelim:       "t_set_delim",
-	tokenSetLeftDelim:   "t_set_left_delim",
-	tokenSetRightDelim:  "t_set_right_delim",
+	tokenError:           "t_error",
+	tokenEOF:             "t_eof",
+	tokenIdentifier:      "t_ident",
+	tokenLeftDelim:       "t_left_delim",
+	tokenRightDelim:      "t_right_delim",
+	tokenText:            "t_text",
+	tokenComment:         "t_comment",
+	tokenSectionStart:    "t_section_start",
+	tokenSectionInverse:  "t_section_inverse",
+	tokenSectionFunction: "t_section_function",
+	tokenSectionEnd:      "t_section_end",
+	tokenRawStart:        "t_raw_start",
+	tokenRawEnd:          "t_raw_end",
+	tokenRawAlt:          "t_raw_alt",
+	tokenPartial:         "t_partial",
+	tokenSetDelim:        "t_set_delim",
+	tokenSetLeftDelim:    "t_set_left_delim",
+	tokenSetRightDelim:   "t_set_right_delim",
 }
 
 // String satisfies the fmt.Stringer interface making it easier to print tokens.
@@ -336,6 +338,8 @@ func stateTag(l *lexer) stateFn {
 		l.emit(tokenSectionStart)
 	case r == '^':
 		l.emit(tokenSectionInverse)
+	case r == '~':
+		l.emit(tokenSectionFunction)
 	case r == '/':
 		l.emit(tokenSectionEnd)
 	case r == '&':

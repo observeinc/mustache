@@ -24,6 +24,7 @@ func lookup(name string, context ...interface{}) (interface{}, bool) {
 		}
 		return nil, false
 	}
+
 	// Iterate over the context chain and try to match the name to a value.
 	for _, c := range context {
 		// Reflect on the value of the current context.

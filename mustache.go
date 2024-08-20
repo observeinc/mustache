@@ -60,6 +60,11 @@ func (n textNode) String() string {
 	return fmt.Sprintf("[text: %q]", string(n))
 }
 
+// CustomizerFunc allows mutation of a rendered template to
+// be called by the template. The argument is the rendered
+// string and the returned value is the result.
+type CustomizerFunc func(string) (string, error)
+
 type escapeType int
 
 const (
@@ -148,6 +153,53 @@ func (n *sectionNode) render(t *Template, w *writer, c ...interface{}) error {
 			return errs
 		}
 	}
+	return nil
+}
+
+type functionSectionNode struct {
+	name  string
+	elems []node
+}
+
+func (n *functionSectionNode) render(t *Template, w *writer, c ...interface{}) error {
+	w.tag()
+	defer w.tag()
+
+	// Render all of the children into an in-memory string and pass that to the
+	// custom function for processing. The function's returned value will then be
+	// rendered into the caller's writer.
+
+	var sb strings.Builder
+	subWriter := newWriter(&sb)
+
+	errs := ErrorSlice{}
+
+	for _, elem := range n.elems {
+		err := elem.render(t, subWriter, c...)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := subWriter.flush(); err != nil {
+		return err
+	}
+
+	if len(errs) != 0 {
+		if !t.silentMiss {
+			return errs
+		}
+	}
+
+	fn := t.customizers[n.name]
+	if fn != nil {
+		s, err := fn(sb.String())
+		if err != nil {
+			return err
+		}
+		_, err = w.Write([]byte(s))
+		return err
+	}
+
 	return nil
 }
 
@@ -340,6 +392,13 @@ func Partial(p *Template) Option {
 	}
 }
 
+// CustomizeFunction sets the function f as available for the template.
+func CustomizeFunction(name string, f CustomizerFunc) Option {
+	return func(t *Template) {
+		t.customizers[name] = f
+	}
+}
+
 // Errors enables missing variable errors. This option is deprecated. Please
 // use SilentMiss instead.
 func Errors() Option {
@@ -386,6 +445,7 @@ type Template struct {
 	name             string
 	elems            []node
 	partials         map[string]*Template
+	customizers      map[string]CustomizerFunc
 	startDelim       string
 	endDelim         string
 	silentMiss       bool
@@ -398,6 +458,7 @@ func New(options ...Option) *Template {
 	t := &Template{
 		elems:            make([]node, 0),
 		partials:         make(map[string]*Template),
+		customizers:      make(map[string]CustomizerFunc),
 		startDelim:       "{{",
 		endDelim:         "}}",
 		silentMiss:       true,

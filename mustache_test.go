@@ -175,6 +175,35 @@ func TestInterpolationWithWhitespace(t *testing.T) {
 	}
 }
 
+func TestCustomFunctions(t *testing.T) {
+	input := strings.NewReader(`raw text {{~reverse}}txet erom{{/reverse}}`)
+	template := New(
+		CustomizeFunction("reverse", func(s string) (string, error) {
+			orig := []rune(s)
+			l := len(orig)
+			reversed := make([]rune, len(orig))
+			for i, j := 0, l-1; i < len(orig); i, j = i+1, j-1 {
+				reversed[j] = orig[i]
+			}
+			return string(reversed), nil
+		}),
+	)
+
+	err := template.Parse(input)
+	if err != nil {
+		t.Error(err)
+	}
+	var output bytes.Buffer
+	err = template.Render(&output, nil)
+	if err != nil {
+		t.Error(err)
+	}
+	expected := `raw text more text`
+	if output.String() != expected {
+		t.Errorf("expected %q got %q", expected, output.String())
+	}
+}
+
 type templateTest struct {
 	template string
 	payload  interface{}
