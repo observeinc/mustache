@@ -126,6 +126,29 @@ context := map[string]interface{}{
 template.Render(os.Stdout, context)
 ```
 
+## Functions
+
+**note:** This is an extension to the mustache spec and library added by Observe Inc.
+
+Functions are additional functionality that a template can invoke to mutate a rendered section. The use caes is to allow escaping, encoding, alterations, or other manipulations of rendered text without applying it to the whole document. The impetus was the need to allow a URL to be properly formatted and encoded in a JSON document. The JSON encoding for the whole document applies, but the specific value must be treated special first. As another example, a custom function named `lowercase` could be added that would be invoked like:
+
+```mustache
+Your name in lowercase letters is:{{~lowercase}}{{name.first}} {{name.last}}{{/lowercase}}
+```
+
+Installing this customizing function is similar to partials, where you use an `Option` in the creation.
+
+```go
+func tolower(in string) (string, error) {
+    // TODO: implement a lowercase operation
+    return "", nil
+}
+
+tmpl := New(
+    CustomizeFunction("lowercase", tolower),
+)
+```
+
 # Tests
 
 Run `go test` as usual. If you want to run the spec tests against this package, make sure you've checked out the specs submodule. Otherwise spec tests will be skipped.

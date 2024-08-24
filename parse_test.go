@@ -107,6 +107,17 @@ func TestParser(t *testing.T) {
 				}},
 			},
 		},
+		{
+			"{{~customize}}blah blah{{/customize}}",
+			[]node{
+				&functionSectionNode{
+					"customize",
+					[]node{
+						textNode("blah blah"),
+					},
+				},
+			},
+		},
 	} {
 		parser := newParser(newLexer(test.template, "{{", "}}", true), htmlEscape)
 		elems, err := parser.parse()

@@ -111,6 +111,8 @@ func (p *parser) parseTag() (node, error) {
 		return p.parseSection(true)
 	case tokenSectionStart:
 		return p.parseSection(false)
+	case tokenSectionFunction:
+		return p.parseFunctionSection()
 	case tokenTestValue:
 		return p.parseTest()
 	case tokenPartial:
@@ -154,7 +156,7 @@ func (p *parser) parseComment() (node, error) {
 		case tokenEOF:
 			return nil, p.errorf(t, "unexpected token %s", t)
 		case tokenError:
-			return nil, p.errorf(t, t.val)
+			return nil, p.errorf(t, "%s", t.val)
 		case tokenRightDelim:
 			return commentNode(comment), nil
 		default:
@@ -182,6 +184,24 @@ func (p *parser) parseSection(inverse bool) (node, error) {
 		elems:    nodes,
 	}
 	return section, nil
+}
+
+func (p *parser) parseFunctionSection() (node, error) {
+	t := p.read()
+	if t.typ != tokenIdentifier {
+		return nil, p.errorf(t, "unexpected token %s", t)
+	}
+
+	nodes, err := p.parseSectionInternal(t)
+	if err != nil {
+		return nil, err
+	}
+
+	f := &functionSectionNode{
+		name:  t.val,
+		elems: nodes,
+	}
+	return f, nil
 }
 
 // parsePartial parses a partial block. It is assumed that the next read should
@@ -218,10 +238,10 @@ func (p *parser) parseSectionInternal(t token) ([]node, error) {
 			// section start and inverse tokens we increase the stack for sections or testValue for those special sections, otherwise
 			// decrease.
 			tt := read[len(read)-2]
-			switch {
-			case tt.typ == tokenSectionStart || tt.typ == tokenTestValue || tt.typ == tokenSectionInverse:
+			switch tt.typ {
+			case tokenSectionStart, tokenTestValue, tokenSectionInverse, tokenSectionFunction:
 				stack++
-			case tt.typ == tokenSectionEnd:
+			case tokenSectionEnd:
 				stack--
 			}
 		}
