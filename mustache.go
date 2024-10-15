@@ -312,8 +312,19 @@ func print(w io.Writer, v interface{}, needEscape escapeType) {
 		case float32, float64:
 			output = fmt.Sprintf("%g", v)
 		default:
-			obj, _ := json.Marshal(v)
-			output = string(obj)
+			// The default json encoder will HTML escape &, <, and >.
+			// Since we explicitly handle escape by user directive, let's make
+			// sure that doesn't happen in the case we just got asked to
+			// marshal a full object (like via `{{{.}}}`).
+			var b bytes.Buffer
+			enc := json.NewEncoder(&b)
+			enc.SetEscapeHTML(false)
+
+			_ = enc.Encode(v)
+			output = b.String()
+
+			// Sadly, the built-in encoder will add a newline so we need to remove that.
+			output = strings.TrimRight(output, "\n")
 		}
 	}
 
