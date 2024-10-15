@@ -320,7 +320,7 @@ func print(w io.Writer, v interface{}, needEscape escapeType) {
 			enc := json.NewEncoder(&b)
 			enc.SetEscapeHTML(false)
 
-			enc.Encode(v)
+			_ = enc.Encode(v)
 			output = b.String()
 
 			// Sadly, the built-in encoder will add a newline so we need to remove that.
