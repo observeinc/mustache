@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"reflect"
 	"strings"
 )
@@ -490,7 +489,7 @@ func (t *Template) Option(options ...Option) {
 // Parse parses a stream of bytes read from r and creates a parse tree that
 // represents the template.
 func (t *Template) Parse(r io.Reader) error {
-	b, err := ioutil.ReadAll(r)
+	b, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
