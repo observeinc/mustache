@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -33,7 +32,7 @@ type Spec struct {
 var specs = make(map[string]Spec)
 
 func init() {
-	files, err := ioutil.ReadDir(specDir)
+	files, err := os.ReadDir(specDir)
 	if err != nil {
 		log.Fatal(err)
 	}
