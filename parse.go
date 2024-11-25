@@ -34,6 +34,8 @@ func (p *parser) readt(t tokenType) ([]token, error) {
 		switch token.typ {
 		case tokenEOF:
 			return tokens, fmt.Errorf("token %q not found", t)
+		case tokenError:
+			return nil, p.errorf(token, "%s", token.val)
 		case t:
 			return tokens, nil
 		}
