@@ -442,6 +442,14 @@ func JsonEscape() Option {
 	}
 }
 
+// NoEscape explicitly removes any escaping of rendered variables.
+// note: HtmlEscape is the default behavior.
+func NoEscape() Option {
+	return func(t *Template) {
+		t.escape = noEscape
+	}
+}
+
 // If you specify this option, then this Template will support
 // {{#test_value ident value}} sections
 func TestValueSection() Option {
