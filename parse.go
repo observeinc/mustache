@@ -4,6 +4,8 @@ package mustache
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 )
 
 type parser struct {
@@ -194,6 +196,21 @@ func (p *parser) parseFunctionSection() (node, error) {
 		return nil, p.errorf(t, "unexpected token %s", t)
 	}
 
+	var opts map[string]string
+	splits := strings.SplitN(t.val, " ", 2)
+	if len(splits) > 1 {
+		t.val = splits[0]
+
+		opts = make(map[string]string)
+
+		r := regexp.MustCompile(`\s*([a-zA-Z][a-zA-Z0-9_]*)\s*=\s*"(.*?)"`)
+		matches := r.FindAllStringSubmatch(splits[1], 16)
+
+		for _, match := range matches {
+			opts[match[1]] = match[2]
+		}
+	}
+
 	nodes, err := p.parseSectionInternal(t)
 	if err != nil {
 		return nil, err
@@ -201,6 +218,7 @@ func (p *parser) parseFunctionSection() (node, error) {
 
 	f := &functionSectionNode{
 		name:  t.val,
+		opts:  opts,
 		elems: nodes,
 	}
 	return f, nil

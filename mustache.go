@@ -64,6 +64,10 @@ func (n textNode) String() string {
 // string and the returned value is the result.
 type CustomizerFunc func(string) (string, error)
 
+// CustomizerFuncWithOptions is like CustomizerFunc, but accepts key/value options
+// from the template.
+type CustomizerFuncWithOptions func(string, map[string]string) (string, error)
+
 type escapeType int
 
 const (
@@ -157,6 +161,7 @@ func (n *sectionNode) render(t *Template, w *writer, c ...interface{}) error {
 
 type functionSectionNode struct {
 	name  string
+	opts  map[string]string
 	elems []node
 }
 
@@ -191,7 +196,7 @@ func (n *functionSectionNode) render(t *Template, w *writer, c ...interface{}) e
 
 	fn := t.customizers[n.name]
 	if fn != nil {
-		s, err := fn(sb.String())
+		s, err := fn(sb.String(), n.opts)
 		if err != nil {
 			return err
 		}
@@ -405,6 +410,16 @@ func Partial(p *Template) Option {
 // CustomizeFunction sets the function f as available for the template.
 func CustomizeFunction(name string, f CustomizerFunc) Option {
 	return func(t *Template) {
+		// wrap the CustomizerFunc as a CustomizerFuncWithOptions
+		t.customizers[name] = func(s string, _ map[string]string) (string, error) {
+			return f(s)
+		}
+	}
+}
+
+// CustomizeFunctionWithOptions sets the function f as available for the template.
+func CustomizeFunctionWithOptions(name string, f CustomizerFuncWithOptions) Option {
+	return func(t *Template) {
 		t.customizers[name] = f
 	}
 }
@@ -463,7 +478,7 @@ type Template struct {
 	name             string
 	elems            []node
 	partials         map[string]*Template
-	customizers      map[string]CustomizerFunc
+	customizers      map[string]CustomizerFuncWithOptions
 	startDelim       string
 	endDelim         string
 	silentMiss       bool
@@ -476,7 +491,7 @@ func New(options ...Option) *Template {
 	t := &Template{
 		elems:            make([]node, 0),
 		partials:         make(map[string]*Template),
-		customizers:      make(map[string]CustomizerFunc),
+		customizers:      make(map[string]CustomizerFuncWithOptions),
 		startDelim:       "{{",
 		endDelim:         "}}",
 		silentMiss:       true,
