@@ -112,6 +112,19 @@ func TestParser(t *testing.T) {
 			[]node{
 				&functionSectionNode{
 					"customize",
+					nil,
+					[]node{
+						textNode("blah blah"),
+					},
+				},
+			},
+		},
+		{ // so that we can do something like {{~lowercase locale="EN-US"}}...
+			`{{~customize opt1="value1" opt2="value2"}}blah blah{{/customize}}`,
+			[]node{
+				&functionSectionNode{
+					"customize",
+					map[string]string{"opt1": "value1", "opt2": "value2"},
 					[]node{
 						textNode("blah blah"),
 					},

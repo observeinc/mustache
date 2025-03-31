@@ -204,6 +204,30 @@ func TestCustomFunctions(t *testing.T) {
 	}
 }
 
+func TestCustomFunctionsWithOptions(t *testing.T) {
+	input := strings.NewReader(`split: {{~split token="x"}}hexllxoxworxld{{/split}}`)
+	template := New(
+		CustomizeFunctionWithOptions("split", func(s string, opts map[string]string) (string, error) {
+			return strings.Join(strings.Split(s, opts["token"]), " "), nil
+		}),
+	)
+
+	err := template.Parse(input)
+	if err != nil {
+		t.Error(err)
+	}
+	var output bytes.Buffer
+	err = template.Render(&output, nil)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Logf("%+v", output)
+	expected := `split: he ll o wor ld`
+	if output.String() != expected {
+		t.Errorf("expected %q got %q", expected, output.String())
+	}
+}
+
 type templateTest struct {
 	template string
 	payload  interface{}
