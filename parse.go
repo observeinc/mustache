@@ -250,7 +250,7 @@ func (p *parser) parseSectionInternal(t token) ([]node, error) {
 	for {
 		read, err := p.readv(t)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to find closing tag for section %q opened at %d:%d", t.val, t.line, t.col)
 		}
 		tokens = append(tokens, read...)
 		if len(read) > 1 {
