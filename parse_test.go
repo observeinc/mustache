@@ -164,7 +164,15 @@ func TestParserNegative(t *testing.T) {
 		},
 		{
 			"{{#test_value {{a}} \"b\"}}",
-			`token "t_ident" not found`,
+			`failed to find closing tag for section "test_value"`,
+		},
+		{
+			"{{#alert.severity.isCritical}}\n    test content\n    {{/alert.severity.isError}}",
+			`failed to find closing tag for section "alert.severity.isCritical"`,
+		},
+		{
+			"{{#foo}}hello{{/bar}}",
+			`failed to find closing tag for section "foo"`,
 		},
 		{
 			"{{#test_value a b}}",
