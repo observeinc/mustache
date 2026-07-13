@@ -139,3 +139,27 @@ func ExampleOption() {
 	// Output: Mustache
 	// Logic less templates with Mustache!
 }
+
+func ExampleTemplate_quotedKeys() {
+	template := New()
+	// Wrap a path segment in quotes to look up a key that itself contains dots
+	// as a single key, rather than descending into a nested path.
+	err := template.ParseString(`{{ metrics."http.request.count" }} requests to {{ metrics."http.route" }}`)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse template: %s\n", err)
+	}
+
+	context := map[string]interface{}{
+		"metrics": map[string]interface{}{
+			"http.request.count": 42,
+			"http.route":         "/api/orders",
+		},
+	}
+
+	output, err := template.RenderString(context)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to render template: %s\n", err)
+	}
+	fmt.Println(output)
+	// Output: 42 requests to /api/orders
+}

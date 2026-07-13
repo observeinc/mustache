@@ -49,14 +49,14 @@ func TestParseTree(t *testing.T) {
 	template := New()
 	template.elems = []node{
 		textNode("Lorem ipsum dolor sit "),
-		&varNode{"foo", noEscape},
+		&varNode{"foo", mustPath("foo"), noEscape},
 		textNode(", "),
-		&sectionNode{"bar", false, []node{
-			&varNode{"baz", htmlEscape},
+		&sectionNode{"bar", mustPath("bar"), false, []node{
+			&varNode{"baz", mustPath("baz"), htmlEscape},
 			textNode(" adipiscing"),
 		}},
 		textNode(" elit. Proin commodo viverra elit "),
-		&varNode{"zer", noEscape},
+		&varNode{"zer", mustPath("zer"), noEscape},
 		textNode("."),
 	}
 	data := map[string]interface{}{
@@ -310,5 +310,105 @@ func TestPartialsCannotCycle(t *testing.T) {
 	expected := `I am the outer.I am the inner.`
 	if output.String() != expected {
 		t.Errorf("expected %q got %q", expected, output.String())
+	}
+}
+
+func TestQuotedKeyTemplates(t *testing.T) {
+	for _, test := range []templateTest{
+		{ // double-quoted key containing dots
+			`{{ metrics."http.request.count" }}`,
+			map[string]interface{}{"metrics": map[string]interface{}{"http.request.count": 42}},
+			`42`,
+		},
+		{ // single quotes are equivalent
+			`{{ metrics.'http.request.count' }}`,
+			map[string]interface{}{"metrics": map[string]interface{}{"http.request.count": 42}},
+			`42`,
+		},
+		{ // non-terminal quoted segment, then a normal key
+			`{{ a."b.c".d }}`,
+			map[string]interface{}{"a": map[string]interface{}{"b.c": map[string]interface{}{"d": "X"}}},
+			`X`,
+		},
+		{ // backslash-escaped quote inside a key
+			`{{ files."a\".b" }}`,
+			map[string]interface{}{"files": map[string]interface{}{`a".b`: "ok"}},
+			`ok`,
+		},
+		{ // HTML escaping still applies to the resolved value
+			`{{ x."a.b" }}`,
+			map[string]interface{}{"x": map[string]interface{}{"a.b": "<v>"}},
+			`&lt;v&gt;`,
+		},
+		{ // triple-brace leaves the value raw
+			`{{{ x."a.b" }}}`,
+			map[string]interface{}{"x": map[string]interface{}{"a.b": "<v>"}},
+			`<v>`,
+		},
+		{ // empty quoted key addresses the empty-string key
+			`{{ m."" }}`,
+			map[string]interface{}{"m": map[string]interface{}{"": "E"}},
+			`E`,
+		},
+		{ // a quoted "." is a literal key, not the whole-context shortcut
+			`{{ obj."." }}`,
+			map[string]interface{}{"obj": map[string]interface{}{".": "dot"}},
+			`dot`,
+		},
+		{ // a section whose name is a quoted key, iterating a slice
+			`{{#groups."a.b"}}{{name}} {{/groups."a.b"}}`,
+			map[string]interface{}{"groups": map[string]interface{}{"a.b": []interface{}{
+				map[string]interface{}{"name": "x"},
+				map[string]interface{}{"name": "y"},
+			}}},
+			`x y `,
+		},
+	} {
+		template := New(SilentMiss(false))
+		if err := template.ParseString(test.template); err != nil {
+			t.Errorf("parse %q: %v", test.template, err)
+			continue
+		}
+		out, err := template.RenderString(test.payload)
+		if err != nil {
+			t.Errorf("render %q: %v", test.template, err)
+			continue
+		}
+		if out != test.expect {
+			t.Errorf("template %q: expected %q got %q", test.template, test.expect, out)
+		}
+	}
+}
+
+func TestRenderJSONBodyWithQuotedKeys(t *testing.T) {
+	// A realistic use: build a JSON payload whose values come from a map keyed by
+	// dotted field names, each holding a nested "value". It mixes quoted (dotted)
+	// and unquoted keys; SilentMiss(false) makes any missed lookup fail the test.
+	body := `{"service":"{{ fields."service.name".value }}",` +
+		`"env":"{{ fields."deployment.environment.name".value }}",` +
+		`"status":{{ fields."http.response.status_code".value }},` +
+		`"seq":{{ fields.seqNum.value }},"ok":true}`
+
+	template := New(SilentMiss(false))
+	if err := template.ParseString(body); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	context := map[string]interface{}{
+		"fields": map[string]interface{}{
+			"service.name":                map[string]interface{}{"value": "checkout"},
+			"deployment.environment.name": map[string]interface{}{"value": "production"},
+			"http.response.status_code":   map[string]interface{}{"value": 500},
+			"seqNum":                      map[string]interface{}{"value": 7},
+		},
+	}
+
+	got, err := template.RenderString(context)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	want := `{"service":"checkout","env":"production","status":500,"seq":7,"ok":true}`
+	if got != want {
+		t.Errorf("got %q want %q", got, want)
 	}
 }

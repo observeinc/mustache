@@ -12,7 +12,7 @@ It is built using lexing techniques described in the slides on [lexical scanning
 
 This package aims to cover 100% of the mustache specification tests, however by the time of this writing it is not complete. (It is missing some pieces around partials, lambdas, and inheritance.) 
 
-On the flip side it also has some alternate rules for escaping. Supports golang structs by field name, method, or tag. Has some extensions to the spec relating to array indexing, and a conditional value match. 
+On the flip side it also has some alternate rules for escaping. Supports golang structs by field name, method, or tag. Has some extensions to the spec relating to array indexing, quoted object keys, and a conditional value match. 
 
 For more information on mustache check the [official documentation](http://mustache.github.io/) and the [mustache spec](http://github.com/mustache/spec).
 
@@ -148,6 +148,43 @@ tmpl := New(
     CustomizeFunction("lowercase", tolower),
 )
 ```
+
+## Quoted keys
+
+**note:** This is an extension to the mustache spec added by Observe Inc.
+
+By default a dotted name is split on every `.`, so `{{ a.b.c }}` walks three levels. When a key itself contains a dot, wrap that segment in quotes so it is looked up as a single literal key instead of a nested path:
+
+```mustache
+{{ metrics."http.request.count" }}
+```
+
+Here `http.request.count` is one key under `metrics`, not a nested `http` → `request` → `count` path. Both double (`"…"`) and single (`'…'`) quotes are accepted and mean the same thing; pick whichever avoids escaping. Quoting is the only way to put a literal `.` in a key — dots inside quotes are never treated as separators.
+
+- **Escapes:** inside a quoted key only `\\` (a literal backslash) and the matching quote (`\"` in a double-quoted key, `\'` in a single-quoted key) are recognized. You do **not** need to escape dots. Any other backslash escape is a parse error.
+- **Empty key:** `""` and `''` are valid and address the empty-string key.
+- **Errors are reported at parse time.** A malformed quote (unterminated, bad escape, or trailing characters after the closing quote) makes `Parse`/`ParseString` return an error regardless of `SilentMiss` — `SilentMiss` only governs a *well-formed* lookup that finds nothing at render time.
+
+```Go
+t := mustache.New()
+t.ParseString(`{{ x."a.b" }}`)
+s, _ := t.RenderString(map[string]interface{}{
+    "x": map[string]interface{}{"a.b": "hello"},
+})
+// s == "hello"
+```
+
+Quoted keys may appear anywhere in a path — including nested segments and section tags:
+
+```mustache
+{{ config."feature.flags"."beta.mode" }}
+{{#items."a.b"}}{{name}}{{/items."a.b"}}
+```
+
+Two things to keep in mind:
+
+- A quoted **section** name must be written identically in the opening and closing tags, including quote style: `{{#a."b.c"}}…{{/a."b.c"}}`. A mismatch is reported as a missing closing tag.
+- A quoted key cannot contain the template's active closing delimiter. With the default delimiters, a `}}` inside a key truncates the tag and surfaces as an "unterminated quote" parse error; use custom `Delimiters` if a key must contain `}}`.
 
 # Tests
 
