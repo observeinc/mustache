@@ -16,9 +16,9 @@ func TestParser(t *testing.T) {
 		{
 			"{{#foo}}\n\t{{#foo}}hello nested{{/foo}}{{/foo}}",
 			[]node{
-				&sectionNode{"foo", false, []node{
+				&sectionNode{"foo", mustPath("foo"), false, []node{
 					textNode("\n\t"),
-					&sectionNode{"foo", false, []node{
+					&sectionNode{"foo", mustPath("foo"), false, []node{
 						textNode("hello nested"),
 					}},
 				}},
@@ -28,9 +28,9 @@ func TestParser(t *testing.T) {
 			"\nfoo {{bar}} {{#alex}}\r\n\tbaz\n{{/alex}} {{!foo}}",
 			[]node{
 				textNode("\nfoo "),
-				&varNode{"bar", htmlEscape},
+				&varNode{"bar", mustPath("bar"), htmlEscape},
 				textNode(" "),
-				&sectionNode{"alex", false, []node{
+				&sectionNode{"alex", mustPath("alex"), false, []node{
 					textNode("\r\n\tbaz\n"),
 				}},
 				textNode(" "),
@@ -41,7 +41,7 @@ func TestParser(t *testing.T) {
 			"this will{{^foo}}not{{/foo}} be rendered",
 			[]node{
 				textNode("this will"),
-				&sectionNode{"foo", true, []node{
+				&sectionNode{"foo", mustPath("foo"), true, []node{
 					textNode("not"),
 				}},
 				textNode(" be rendered"),
@@ -50,9 +50,9 @@ func TestParser(t *testing.T) {
 		{
 			"{{#list}}({{.}}){{/list}}",
 			[]node{
-				&sectionNode{"list", false, []node{
+				&sectionNode{"list", mustPath("list"), false, []node{
 					textNode("("),
-					&varNode{".", htmlEscape},
+					&varNode{".", mustPath("."), htmlEscape},
 					textNode(")"),
 				}},
 			},
@@ -60,9 +60,9 @@ func TestParser(t *testing.T) {
 		{
 			"{{#*}}({{.}}){{/*}}",
 			[]node{
-				&sectionNode{"*", false, []node{
+				&sectionNode{"*", mustPath("*"), false, []node{
 					textNode("("),
-					&varNode{".", htmlEscape},
+					&varNode{".", mustPath("."), htmlEscape},
 					textNode(")"),
 				}},
 			},
@@ -70,9 +70,9 @@ func TestParser(t *testing.T) {
 		{
 			"{{#list}}({{*}}){{/list}}",
 			[]node{
-				&sectionNode{"list", false, []node{
+				&sectionNode{"list", mustPath("list"), false, []node{
 					textNode("("),
-					&varNode{"*", htmlEscape},
+					&varNode{"*", mustPath("*"), htmlEscape},
 					textNode(")"),
 				}},
 			},
@@ -80,9 +80,9 @@ func TestParser(t *testing.T) {
 		{
 			"{{#test_value {{foo}} \"bar\"}}({{a}a}}){{/test_value}}",
 			[]node{
-				&testNode{"foo", "bar", []node{
+				&testNode{mustPath("foo"), "bar", []node{
 					textNode("("),
-					&varNode{"a}a", htmlEscape},
+					&varNode{"a}a", mustPath("a}a"), htmlEscape},
 					textNode(")"),
 				}},
 			},
@@ -90,9 +90,9 @@ func TestParser(t *testing.T) {
 		{
 			"{{#test_value {{foo}} \"bar\"}}{{#a}}{{b}}{{/a}}{{/test_value}}",
 			[]node{
-				&testNode{"foo", "bar", []node{
-					&sectionNode{"a", false, []node{
-						&varNode{"b", htmlEscape},
+				&testNode{mustPath("foo"), "bar", []node{
+					&sectionNode{"a", mustPath("a"), false, []node{
+						&varNode{"b", mustPath("b"), htmlEscape},
 					}},
 				}},
 			},
@@ -100,9 +100,9 @@ func TestParser(t *testing.T) {
 		{
 			"{{#list}}({{a}a}}){{/list}}",
 			[]node{
-				&sectionNode{"list", false, []node{
+				&sectionNode{"list", mustPath("list"), false, []node{
 					textNode("("),
-					&varNode{"a}a", htmlEscape},
+					&varNode{"a}a", mustPath("a}a"), htmlEscape},
 					textNode(")"),
 				}},
 			},
@@ -129,6 +129,26 @@ func TestParser(t *testing.T) {
 						textNode("blah blah"),
 					},
 				},
+			},
+		},
+		{
+			`{{ metrics."http.request.count" }}`,
+			[]node{
+				&varNode{`metrics."http.request.count"`, mustPath(`metrics."http.request.count"`), htmlEscape},
+			},
+		},
+		{
+			`{{ fields.'service.name'.value }}`,
+			[]node{
+				&varNode{`fields.'service.name'.value`, mustPath(`fields.'service.name'.value`), htmlEscape},
+			},
+		},
+		{
+			`{{#config."feature.flags"}}{{enabled}}{{/config."feature.flags"}}`,
+			[]node{
+				&sectionNode{`config."feature.flags"`, mustPath(`config."feature.flags"`), false, []node{
+					&varNode{"enabled", mustPath("enabled"), htmlEscape},
+				}},
 			},
 		},
 	} {
@@ -181,6 +201,26 @@ func TestParserNegative(t *testing.T) {
 		{
 			"{{#test_value {{a b\"}}",
 			`1:22 syntax error: unexpected token t_error:"invalid test_value value token"`,
+		},
+		{
+			`{{ "foo }}`,
+			`unterminated quote`,
+		},
+		{
+			`{{ x."a\q" }}`,
+			`invalid escape`,
+		},
+		{
+			`{{{ x."a }}}`,
+			`unterminated quote`,
+		},
+		{
+			`{{ x."a"b }}`,
+			`unexpected`,
+		},
+		{
+			`{{#a."b"}}x{{/a.'b'}}`,
+			`failed to find closing tag`,
 		},
 	} {
 		parser := newParser(newLexer(test.template, "{{", "}}", true), htmlEscape)

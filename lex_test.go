@@ -81,6 +81,48 @@ func TestLexer(t *testing.T) {
 				{typ: tokenEOF},
 			},
 		},
+		{
+			// A quoted key is emitted as a single identifier token, quotes and
+			// interior dots included; surrounding whitespace is trimmed.
+			`foo {{ metrics."http.request.count" }}`,
+			[]token{
+				{typ: tokenText, val: "foo "},
+				{typ: tokenLeftDelim, val: "{{"},
+				{typ: tokenIdentifier, val: `metrics."http.request.count"`},
+				{typ: tokenRightDelim, val: "}}"},
+				{typ: tokenEOF},
+			},
+		},
+		{
+			// Single quotes and a quoted segment in the middle of a path.
+			`{{ fields.'service.name'.value }}`,
+			[]token{
+				{typ: tokenLeftDelim, val: "{{"},
+				{typ: tokenIdentifier, val: `fields.'service.name'.value`},
+				{typ: tokenRightDelim, val: "}}"},
+				{typ: tokenEOF},
+			},
+		},
+		{
+			// A single '}' inside a quoted key is not the closing delimiter.
+			`{{ x."a}b" }}`,
+			[]token{
+				{typ: tokenLeftDelim, val: "{{"},
+				{typ: tokenIdentifier, val: `x."a}b"`},
+				{typ: tokenRightDelim, val: "}}"},
+				{typ: tokenEOF},
+			},
+		},
+		{
+			// A backslash-escaped quote is carried through verbatim to the parser.
+			`{{ x."a\".b" }}`,
+			[]token{
+				{typ: tokenLeftDelim, val: "{{"},
+				{typ: tokenIdentifier, val: `x."a\".b"`},
+				{typ: tokenRightDelim, val: "}}"},
+				{typ: tokenEOF},
+			},
+		},
 	} {
 		var (
 			lexer = newLexer(test.template, "{{", "}}", true)

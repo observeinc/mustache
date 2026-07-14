@@ -138,7 +138,11 @@ func (p *parser) parseRawTag() (node, error) {
 	if next := p.read(); next.typ != tokenRightDelim {
 		return nil, p.errorf(t, "unexpected token %s", t)
 	}
-	return &varNode{name: t.val, escape: noEscape}, nil
+	path, err := parsePath(t.val)
+	if err != nil {
+		return nil, p.errorf(t, "%s", err)
+	}
+	return &varNode{name: t.val, path: path, escape: noEscape}, nil
 }
 
 // parseVar parses a simple variable tag. It is assumed that the read from the
@@ -147,7 +151,11 @@ func (p *parser) parseVar(ident token, escape escapeType) (node, error) {
 	if t := p.read(); t.typ != tokenRightDelim {
 		return nil, p.errorf(t, "unexpected token %s", t)
 	}
-	return &varNode{name: ident.val, escape: escape}, nil
+	path, err := parsePath(ident.val)
+	if err != nil {
+		return nil, p.errorf(ident, "%s", err)
+	}
+	return &varNode{name: ident.val, path: path, escape: escape}, nil
 }
 
 // parseComment parses a comment block. It is assumed that the next read should
@@ -177,6 +185,11 @@ func (p *parser) parseSection(inverse bool) (node, error) {
 		return nil, p.errorf(t, "unexpected token %s", t)
 	}
 
+	path, err := parsePath(t.val)
+	if err != nil {
+		return nil, p.errorf(t, "%s", err)
+	}
+
 	nodes, err := p.parseSectionInternal(t)
 	if err != nil {
 		return nil, err
@@ -184,6 +197,7 @@ func (p *parser) parseSection(inverse bool) (node, error) {
 
 	section := &sectionNode{
 		name:     t.val,
+		path:     path,
 		inverted: inverse,
 		elems:    nodes,
 	}
@@ -250,7 +264,11 @@ func (p *parser) parseSectionInternal(t token) ([]node, error) {
 	for {
 		read, err := p.readv(t)
 		if err != nil {
-			return nil, fmt.Errorf("failed to find closing tag for section %q opened at %d:%d", t.val, t.line, t.col)
+			msg := fmt.Sprintf("failed to find closing tag for section %q opened at %d:%d", t.val, t.line, t.col)
+			if strings.ContainsAny(t.val, `"'`) {
+				msg += " (quoted section names must match the opening tag exactly, including quote style)"
+			}
+			return nil, fmt.Errorf("%s", msg)
 		}
 		tokens = append(tokens, read...)
 		if len(read) > 1 {
@@ -300,15 +318,20 @@ func (p *parser) parseTest() (node, error) {
 		return nil, p.errorf(v, "unexpected token %s", v)
 	}
 
+	testIdentPath, err := parsePath(i.val)
+	if err != nil {
+		return nil, p.errorf(i, "%s", err)
+	}
+
 	nodes, err := p.parseSectionInternal(t)
 	if err != nil {
 		return nil, err
 	}
 
 	section := &testNode{
-		testIdent: i.val,
-		testVal:   v.val,
-		elems:     nodes,
+		testIdentPath: testIdentPath,
+		testVal:       v.val,
+		elems:         nodes,
 	}
 	return section, nil
 }

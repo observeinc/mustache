@@ -104,7 +104,11 @@ func TestSimpleLookup(t *testing.T) {
 		},
 	} {
 		for _, assertion := range test.assertions {
-			value, truth := lookup(assertion.name, test.context)
+			path, err := parsePath(assertion.name)
+			if err != nil {
+				t.Fatalf("parsePath(%q): %v", assertion.name, err)
+			}
+			value, truth := lookupPath(path, test.context)
 			if value != assertion.value {
 				t.Errorf("Unexpected value %v,%T != %v,%T", value, value, assertion.value, assertion.value)
 			}
@@ -113,6 +117,16 @@ func TestSimpleLookup(t *testing.T) {
 			}
 		}
 	}
+}
+
+// mustPath parses raw into path segments for use in expected test trees,
+// panicking on a malformed path.
+func mustPath(raw string) []pathSegment {
+	segs, err := parsePath(raw)
+	if err != nil {
+		panic(err)
+	}
+	return segs
 }
 
 func TestTruth(t *testing.T) {

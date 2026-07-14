@@ -93,12 +93,13 @@ func (e escapeType) String() string {
 // by a variable that exists within c.
 type varNode struct {
 	name   string
+	path   []pathSegment
 	escape escapeType
 }
 
 func (n *varNode) render(t *Template, w *writer, c ...interface{}) error {
 	w.text()
-	v, _ := lookup(n.name, c...)
+	v, _ := lookupPath(n.path, c...)
 	// If the value is present but 'falsy', such as a false bool, or a zero int,
 	// we still want to render that value.
 	if v != nil {
@@ -116,6 +117,7 @@ func (n *varNode) String() string {
 // elements while passing along its context along with the global context.
 type sectionNode struct {
 	name     string
+	path     []pathSegment
 	inverted bool
 	elems    []node
 }
@@ -135,7 +137,7 @@ func (n *sectionNode) render(t *Template, w *writer, c ...interface{}) error {
 		}
 	}
 
-	v, ok := lookup(n.name, c...)
+	v, ok := lookupPath(n.path, c...)
 	if ok != n.inverted {
 		r := reflect.ValueOf(v)
 		switch r.Kind() {
@@ -210,16 +212,16 @@ func (n *functionSectionNode) render(t *Template, w *writer, c ...interface{}) e
 // The testNode type is a complex node which recursively renders its child
 // elements while passing along its context along with the global context.
 type testNode struct {
-	testIdent string
-	testVal   string
-	elems     []node
+	testIdentPath []pathSegment
+	testVal       string
+	elems         []node
 }
 
 func (n *testNode) render(t *Template, w *writer, c ...interface{}) error {
 	w.tag()
 	defer w.tag()
 	errs := ErrorSlice{}
-	v, _ := lookup(n.testIdent, c...)
+	v, _ := lookupPath(n.testIdentPath, c...)
 	if v != nil {
 		vs := strings.Builder{}
 		print(&vs, v, noEscape)
