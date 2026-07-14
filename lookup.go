@@ -81,7 +81,7 @@ func lookup_struct(name string, reflectValue reflect.Value) (value interface{}, 
 		return field.Interface(), truth(field), true
 	}
 	method := reflectValue.MethodByName(name)
-	if method.IsValid() && method.Type().NumIn() == 1 {
+	if method.IsValid() && method.Type().NumIn() == 0 && method.Type().NumOut() >= 1 {
 		out := method.Call(nil)[0]
 		return out.Interface(), truth(out), true
 	}
