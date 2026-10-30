@@ -217,11 +217,11 @@ func (p *parser) parseFunctionSection() (node, error) {
 
 		opts = make(map[string]string)
 
-		r := regexp.MustCompile(`\s*([a-zA-Z][a-zA-Z0-9_]*)\s*=\s*"(.*?)"`)
+		r := regexp.MustCompile(`\s*([a-zA-Z][a-zA-Z0-9_]*)\s*=\s*"((?:\\.|[^"\\])*)"`)
 		matches := r.FindAllStringSubmatch(splits[1], 16)
 
 		for _, match := range matches {
-			opts[match[1]] = match[2]
+			opts[match[1]] = unescapeFunctionOption(match[2])
 		}
 	}
 
@@ -236,6 +236,18 @@ func (p *parser) parseFunctionSection() (node, error) {
 		elems: nodes,
 	}
 	return f, nil
+}
+
+func unescapeFunctionOption(value string) string {
+	var b strings.Builder
+	b.Grow(len(value))
+	for i := 0; i < len(value); i++ {
+		if value[i] == '\\' && i+1 < len(value) && (value[i+1] == '\\' || value[i+1] == '"') {
+			i++
+		}
+		b.WriteByte(value[i])
+	}
+	return b.String()
 }
 
 // parsePartial parses a partial block. It is assumed that the next read should
