@@ -5,6 +5,7 @@ package mustache
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -28,6 +29,31 @@ func (es ErrorSlice) Error() string {
 	b.WriteRune(']')
 
 	return b.String()
+}
+
+type lookupError struct {
+	name string
+}
+
+func (e *lookupError) Error() string {
+	return fmt.Sprintf("failed to lookup %s", e.name)
+}
+
+func containsOnlyLookupErrors(err error) bool {
+	if errs, ok := err.(ErrorSlice); ok {
+		if len(errs) == 0 {
+			return false
+		}
+		for _, nestedErr := range errs {
+			if !containsOnlyLookupErrors(nestedErr) {
+				return false
+			}
+		}
+		return true
+	}
+
+	var target *lookupError
+	return errors.As(err, &target)
 }
 
 // The node type is the base type that represents a node in the parse tree.
@@ -106,7 +132,7 @@ func (n *varNode) render(t *Template, w *writer, c ...interface{}) error {
 		print(w, v, n.escape)
 		return nil
 	}
-	return fmt.Errorf("failed to lookup %s", n.name)
+	return &lookupError{name: n.name}
 }
 
 func (n *varNode) String() string {
@@ -153,10 +179,8 @@ func (n *sectionNode) render(t *Template, w *writer, c ...interface{}) error {
 			elemFn(v)
 		}
 	}
-	if len(errs) != 0 {
-		if !t.silentMiss {
-			return errs
-		}
+	if len(errs) != 0 && (!t.silentMiss || !containsOnlyLookupErrors(errs)) {
+		return errs
 	}
 	return nil
 }
@@ -190,10 +214,8 @@ func (n *functionSectionNode) render(t *Template, w *writer, c ...interface{}) e
 		return err
 	}
 
-	if len(errs) != 0 {
-		if !t.silentMiss {
-			return errs
-		}
+	if len(errs) != 0 && (!t.silentMiss || !containsOnlyLookupErrors(errs)) {
+		return errs
 	}
 
 	fn := t.customizers[n.name]
@@ -202,8 +224,16 @@ func (n *functionSectionNode) render(t *Template, w *writer, c ...interface{}) e
 		if err != nil {
 			return err
 		}
-		_, err = w.Write([]byte(s))
-		return err
+		if s == "" {
+			return nil
+		}
+		w.text()
+		if _, err = w.Write([]byte(s)); err != nil {
+			return err
+		}
+		// Write resets line state after each newline.
+		w.text()
+		return nil
 	}
 
 	return nil
@@ -234,10 +264,8 @@ func (n *testNode) render(t *Template, w *writer, c ...interface{}) error {
 			}
 		}
 	}
-	if len(errs) != 0 {
-		if !t.silentMiss {
-			return errs
-		}
+	if len(errs) != 0 && (!t.silentMiss || !containsOnlyLookupErrors(errs)) {
+		return errs
 	}
 	return nil
 }
@@ -278,10 +306,8 @@ func (p *partialNode) render(t *Template, w *writer, c ...interface{}) error {
 		}
 
 		err := template.render(w, c...)
-		if err != nil {
-			if !t.silentMiss {
-				return err
-			}
+		if err != nil && (!t.silentMiss || !containsOnlyLookupErrors(err)) {
+			return err
 		}
 	}
 
@@ -541,10 +567,8 @@ func (t *Template) ParseBytes(b []byte) error {
 func (t *Template) render(w *writer, context ...interface{}) error {
 	for _, elem := range t.elems {
 		err := elem.render(t, w, context...)
-		if err != nil {
-			if !t.silentMiss {
-				return err
-			}
+		if err != nil && (!t.silentMiss || !containsOnlyLookupErrors(err)) {
+			return err
 		}
 	}
 	return w.flush()
